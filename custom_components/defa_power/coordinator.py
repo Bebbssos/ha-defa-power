@@ -4,7 +4,7 @@ import asyncio
 from datetime import timedelta
 import logging
 
-from config.custom_components.defa_power.models import Charger
+from .models import Charger
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_component import ConfigType
