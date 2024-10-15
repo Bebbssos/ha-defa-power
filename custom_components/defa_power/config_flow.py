@@ -1,5 +1,8 @@
+"""Config flow for DEFA power integration."""
+
 import logging
 from typing import Any
+import uuid
 
 import voluptuous as vol
 
@@ -74,6 +77,11 @@ async def login(
     return {"userId": response.get("id"), "token": response.get("token")}
 
 
+def get_instance_id():
+    """Generate a unique instance id."""
+    return str(uuid.uuid4())
+
+
 class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """DEFA power config flow."""
 
@@ -83,18 +91,22 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the initial step."""
         return await self.async_step_choose_method(user_input)
 
+    async def async_step_reauth(self, user_input: dict[str, Any] | None = None):
+        """Handle re-authentication."""
+        return await self.async_step_choose_method(user_input)
+
     async def async_step_choose_method(self, user_input: dict[str, Any] | None = None):
         """Step to choose the method of configuration."""
         if user_input is not None:
             if user_input["method"] == "phone_number":
                 return await self.async_step_send_code()
-            elif user_input["method"] == "manual":
+            if user_input["method"] == "manual":
                 return await self.async_step_manual_entry()
 
         return self.async_show_form(step_id="choose_method", data_schema=CHOICE_SCHEMA)
 
     async def async_step_send_code(self, user_input: dict[str, Any] | None = None):
-        """Invoked when a user initiates a flow via the user interface."""
+        """Enter phone number to receive the code."""
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
@@ -104,6 +116,7 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     self.hass,
                 )
             except Exception as e:
+                _LOGGER.error("Prelogin error: %s", e)
                 errors["base"] = "prelogin_error"
             if not errors:
                 # Input is valid, set data.
@@ -116,7 +129,7 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_sms_code(self, user_input: dict[str, Any] | None = None):
-        """Second step in config flow to add a repo to watch."""
+        """Enter the SMS code."""
         errors: dict[str, str] = {}
         if user_input is not None:
             # Validate the path.
@@ -129,10 +142,12 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     self.hass,
                 )
             except Exception as e:
+                _LOGGER.error("Login error: %s", e)
                 errors["base"] = "login_error"
 
             if not errors:
                 # User is done adding repos, create the config entry.
+                data["instance_id"] = get_instance_id()
                 return self.async_create_entry(title=NAME, data=data)
 
         return self.async_show_form(
@@ -149,10 +164,15 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if user_id and token:
                 # Input is valid, create the config entry.
                 return self.async_create_entry(
-                    title=NAME, data={"userId": user_id, "token": token}
+                    title=NAME,
+                    data={
+                        "userId": user_id,
+                        "token": token,
+                        "instance_id": get_instance_id(),
+                    },
                 )
-            else:
-                errors["base"] = "manual_entry_error"
+
+            errors["base"] = "manual_entry_error"
 
         return self.async_show_form(
             step_id="manual_entry", data_schema=MANUAL_ENTRY_SCHEMA, errors=errors

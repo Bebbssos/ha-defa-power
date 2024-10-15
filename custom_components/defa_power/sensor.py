@@ -1,27 +1,19 @@
-from datetime import timedelta
+"""DEFA Power sensor entities."""
+
+from collections.abc import Callable
 from enum import Enum
 import logging
-from typing import Callable, Final
-
-import voluptuous as vol
+from typing import Final
 
 from homeassistant.components.sensor import (
-    PLATFORM_SCHEMA,
     SensorDeviceClass,
     SensorEntityDescription,
     SensorStateClass,
     dataclass,
 )
-from homeassistant.const import (
-    CONF_NAME,
-    CONF_PATH,
-    UnitOfElectricCurrent,
-    UnitOfEnergy,
-    UnitOfPower,
-)
+from homeassistant.const import UnitOfElectricCurrent, UnitOfEnergy, UnitOfPower
 from homeassistant.core import HomeAssistant, callback
-import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.entity import DeviceInfo, Entity
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -32,22 +24,6 @@ from .coordinator import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-# Time between updating data
-SCAN_INTERVAL = timedelta(seconds=15)
-
-CONF_TOKEN = "token"
-CONF_USER_ID = "userId"
-
-REPO_SCHEMA = vol.Schema(
-    {vol.Required(CONF_PATH): cv.string, vol.Optional(CONF_NAME): cv.string}
-)
-
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
-    {
-        vol.Required(CONF_TOKEN): cv.string,
-        vol.Required(CONF_USER_ID): cv.string,
-    }
-)
 
 
 class Coordinator(Enum):
@@ -62,6 +38,8 @@ class DefaPowerSensorDescriptionMixin:
     """Define an entity description mixin for sensor entities."""
 
     field_name: str
+    round_digits: int | None
+    disabled_by_default: bool
 
 
 @dataclass
@@ -82,7 +60,7 @@ class DefaPowerSensorDescription(
 class DefaPowerSensorConnectorDescription(
     DefaPowerSensorDescription, DefaPowerSensorDescriptionConnectorMixin
 ):
-    """Class to describe an DEFA Power sensor entity."""
+    """Class to describe a DEFA Power sensor entity."""
 
 
 DEFA_POWER_CHARGER_SENSOR_TYPES: Final[tuple[DefaPowerSensorDescription, ...]] = (
@@ -91,7 +69,9 @@ DEFA_POWER_CHARGER_SENSOR_TYPES: Final[tuple[DefaPowerSensorDescription, ...]] =
         name="Currency code",
         icon="mdi:currency-usd",
         field_name="currencyCode",
+        round_digits=None,
         native_unit_of_measurement=None,
+        disabled_by_default=True,
     ),
 )
 
@@ -104,9 +84,11 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: Final[
         icon="mdi:counter",
         field_name="meterValue",
         coordinator=Coordinator.OPERATIONAL_DATA,
+        round_digits=3,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.ENERGY,
+        disabled_by_default=False,
     ),
     DefaPowerSensorConnectorDescription(
         key="transaction_meter_value",
@@ -114,9 +96,11 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: Final[
         icon="mdi:counter",
         field_name="transactionMeterValue",
         coordinator=Coordinator.OPERATIONAL_DATA,
+        round_digits=3,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.ENERGY,
+        disabled_by_default=False,
     ),
     DefaPowerSensorConnectorDescription(
         key="power_consumption",
@@ -124,9 +108,11 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: Final[
         icon="mdi:lightning-bolt",
         field_name="powerConsumption",
         coordinator=Coordinator.OPERATIONAL_DATA,
+        round_digits=3,
         native_unit_of_measurement=UnitOfPower.KILO_WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER,
+        disabled_by_default=False,
     ),
     DefaPowerSensorConnectorDescription(
         key="charging_state",
@@ -134,7 +120,9 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: Final[
         icon="mdi:battery-charging",
         field_name="chargingState",
         coordinator=Coordinator.OPERATIONAL_DATA,
+        round_digits=None,
         native_unit_of_measurement=None,
+        disabled_by_default=False,
     ),
     DefaPowerSensorConnectorDescription(
         key="status",
@@ -142,7 +130,9 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: Final[
         icon="mdi:ev-station",
         field_name="status",
         coordinator=Coordinator.OPERATIONAL_DATA,
+        round_digits=None,
         native_unit_of_measurement=None,
+        disabled_by_default=True,
     ),
     DefaPowerSensorConnectorDescription(
         key="power",
@@ -150,9 +140,11 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: Final[
         icon="mdi:lightning-bolt",
         field_name="power",
         coordinator=Coordinator.CHARGERS,
+        round_digits=2,
         native_unit_of_measurement=UnitOfPower.KILO_WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER,
+        disabled_by_default=False,
     ),
     DefaPowerSensorConnectorDescription(
         key="ampere",
@@ -160,18 +152,32 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: Final[
         icon="mdi:current-ac",
         field_name="ampere",
         coordinator=Coordinator.CHARGERS,
+        round_digits=0,
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.CURRENT,
+        disabled_by_default=False,
+    ),
+    DefaPowerSensorConnectorDescription(
+        key="firmware_version",
+        name="Firmware version",
+        icon="mdi:information-outline",
+        field_name="firmwareVersion",
+        coordinator=Coordinator.CHARGERS,
+        round_digits=None,
+        native_unit_of_measurement=None,
+        disabled_by_default=False,
     ),
 )
 
 
 class ChargerDevice:
-    def __init__(self, data):
+    """Representation of a DEFA Power charger device."""
+
+    def __init__(self, data, instance_id):
         """Initialize the device."""
         self._device_info = DeviceInfo(
-            identifiers={(DOMAIN, data["id"])},
+            identifiers={(DOMAIN, instance_id, data["id"])},
             name=data.get("displayName") or data["id"],
         )
 
@@ -181,16 +187,18 @@ class ChargerDevice:
 
 
 class ConnectorDevice:
-    def __init__(self, data):
+    """Representation of a DEFA Power connector device."""
+
+    def __init__(self, data, instance_id):
         """Initialize the device."""
         self._device_info = DeviceInfo(
-            identifiers={(DOMAIN, data["id"])},
+            identifiers={(DOMAIN, instance_id, data["id"])},
             manufacturer=data["vendor"],
             model=data["model"],
             name=data.get("displayName") or data.get("smsAlias") or data["id"],
             sw_version=data["firmwareVersion"],
             serial_number=data["serialNumber"],
-            via_device=(DOMAIN, data["chargerId"]),
+            via_device=(DOMAIN, instance_id, data["chargerId"]),
         )
 
     def get_device_info(self):
@@ -206,23 +214,17 @@ async def async_setup_platform(
 ) -> None:
     """Set up the sensor platform."""
 
+    instance_id = config.get("instance_id") or "default"
     chargersCoordinator = CloudChargeChargersCoordinator(hass, config)
     await chargersCoordinator.async_config_entry_first_refresh()
     entities = []
 
-    # for charger_data in coordinator.data:
-    #     charger = Charger(charger_data["data"])
-    #     charger_entity = DefaPowerChargerSensor(charger)
-    #     entities.append(charger_entity)
-    #     for connector in charger["aliasMap"].values():
-    #         connector_entity = DefaPowerChargerConnectorSensor(
-    #             connector, charger_entity
-    #         )
-    #         entities.append(connector_entity)
     for connectorId, val in chargersCoordinator.data["chargers"].items():
-        device = ChargerDevice(val)
+        device = ChargerDevice(val, instance_id)
         entities.extend(
-            DefaChargerEntity(connectorId, chargersCoordinator, sensorType, device)
+            DefaChargerEntity(
+                connectorId, chargersCoordinator, sensorType, device, instance_id
+            )
             for sensorType in DEFA_POWER_CHARGER_SENSOR_TYPES
         )
 
@@ -231,7 +233,7 @@ async def async_setup_platform(
             connectorId, hass, config
         )
         await operational_data_coordinator.async_config_entry_first_refresh()
-        device = ConnectorDevice(val)
+        device = ConnectorDevice(val, instance_id)
 
         for sensorType in DEFA_POWER_CONNECTOR_SENSOR_TYPES:
             if sensorType.coordinator == Coordinator.CHARGERS:
@@ -240,7 +242,9 @@ async def async_setup_platform(
                 coordinator = operational_data_coordinator
 
             entities.append(
-                DefaConnectorEntity(connectorId, coordinator, sensorType, device)
+                DefaConnectorEntity(
+                    connectorId, coordinator, sensorType, device, instance_id
+                )
             )
 
     async_add_entities(entities, update_before_add=True)
@@ -260,17 +264,25 @@ class DefaChargerEntity(CoordinatorEntity):
         coordinator,
         description: DefaPowerSensorDescription,
         device: ChargerDevice,
+        instance_id: str,
     ):
         """Initialize the entity."""
         super().__init__(coordinator, id)
         self.coordinator = coordinator
         self.entity_description = description
         # self._attr_name = f"{coordinator.name} {description.name}"
-        self._attr_unique_id = f"{id}_{description.key}"
+        self._attr_unique_id = f"{instance_id}_{id}_{description.key}"
         self._attr_device_class = description.device_class
         self._attr_state_class = description.state_class
         self._attr_native_unit_of_measurement = description.native_unit_of_measurement
         self._attr_icon = description.icon
+
+        if description.disabled_by_default:
+            self._attr_entity_registry_enabled_default = False
+
+        if description.round_digits is not None:
+            self.attr_suggested_display_precision = description.round_digits
+
         self.id = id
         self._attr_device_info = device.get_device_info()
         self._set_state()
@@ -310,6 +322,7 @@ class DefaConnectorEntity(CoordinatorEntity):
         coordinator,
         description: DefaPowerSensorConnectorDescription,
         device: ConnectorDevice,
+        instance_id: str,
     ):
         """Initialize the entity."""
         if description.coordinator == Coordinator.CHARGERS:
@@ -323,11 +336,18 @@ class DefaConnectorEntity(CoordinatorEntity):
         self.coordinator = coordinator
         self.entity_description = description
         # self._attr_name = f"{coordinator.name} {description.name}"
-        self._attr_unique_id = f"{id}_{description.key}"
+        self._attr_unique_id = f"{instance_id}_{id}_{description.key}"
         self._attr_device_class = description.device_class
         self._attr_state_class = description.state_class
         self._attr_native_unit_of_measurement = description.native_unit_of_measurement
         self._attr_icon = description.icon
+
+        if description.disabled_by_default:
+            self._attr_entity_registry_enabled_default = False
+
+        if description.round_digits is not None:
+            self.attr_suggested_display_precision = description.round_digits
+
         self.id = id
         self._attr_device_info = device.get_device_info()
         self._set_state()

@@ -1,3 +1,5 @@
+"""Models for CloudCharger API."""
+
 from typing import Any, TypedDict
 
 

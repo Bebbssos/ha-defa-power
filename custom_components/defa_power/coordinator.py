@@ -1,19 +1,14 @@
+"""Define coordinators for CloudCharge API."""
+
+import asyncio
 from datetime import timedelta
 import logging
 
-import async_timeout
-
 from config.custom_components.defa_power.models import Charger
-from homeassistant.components.light import LightEntity
-from homeassistant.core import callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_component import ConfigType
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-    DataUpdateCoordinator,
-    UpdateFailed,
-)
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import API_BASE_URL
 
@@ -55,26 +50,33 @@ class CloudChargeChargersCoordinator(DataUpdateCoordinator):
         # try:
         # Note: asyncio.TimeoutError and aiohttp.ClientError are already
         # handled by the data update coordinator.
-        # async with async_timeout.timeout(10):
-        # Grab active context variables to limit data required to be fetched from API
-        # Note: using context is not required if there is no need or ability to limit
-        # data retrieved from API.
-        response = await self.session.get(
-            f"{API_BASE_URL}/chargers/private", headers=self.headers
-        )
-        chargers_data: list[Charger] = await response.json()
+        async with asyncio.timeout(10):
+            # Grab active context variables to limit data required to be fetched from API
+            # Note: using context is not required if there is no need or ability to limit
+            # data retrieved from API.
+            response = await self.session.get(
+                f"{API_BASE_URL}/chargers/private", headers=self.headers
+            )
 
-        chargers = {}
-        connectors = {}
+            if response.status == 401:
+                raise ConfigEntryAuthFailed
 
-        for charger_data in chargers_data:
-            charger = charger_data["data"]
-            chargers[charger["id"]] = charger
-            for connector in charger["aliasMap"].values():
-                connector["chargerId"] = charger["id"]
-                connectors[connector["id"]] = connector
+            if response.status != 200:
+                raise UpdateFailed(f"Error communicating with API: {response.status}")
 
-        return {"chargers": chargers, "connectors": connectors}
+            chargers_data: list[Charger] = await response.json()
+
+            chargers = {}
+            connectors = {}
+
+            for charger_data in chargers_data:
+                charger = charger_data["data"]
+                chargers[charger["id"]] = charger
+                for connector in charger["aliasMap"].values():
+                    connector["chargerId"] = charger["id"]
+                    connectors[connector["id"]] = connector
+
+            return {"chargers": chargers, "connectors": connectors}
 
         #     except ApiAuthError as err:
         #     # Raising ConfigEntryAuthFailed will cancel future updates
@@ -118,32 +120,39 @@ class CloudChargeOperationalDataCoordinator(DataUpdateCoordinator):
         # try:
         # Note: asyncio.TimeoutError and aiohttp.ClientError are already
         # handled by the data update coordinator.
-        # async with async_timeout.timeout(10):
-        # Grab active context variables to limit data required to be fetched from API
-        # Note: using context is not required if there is no need or ability to limit
-        # data retrieved from API.
-        response = await self.session.get(
-            f"{API_BASE_URL}/connector/{self.connectorId}/operationaldata",
-            headers=self.headers,
-        )
-        data = await response.json()
-
-        data["chargingState"] = data["ocpp"]["chargingState"]
-        data["status"] = data["ocpp"]["status"]
-        del data["ocpp"]
-
-        # Update every 10 seconds while charging, otherwise every minute
-        if self.is_charging and data["chargingState"] != "Charging":
-            self.is_charging = False
-            self.update_interval = timedelta(seconds=60)
-        elif not self.is_charging and data["chargingState"] == "Charging":
-            self.is_charging = True
-            self.update_interval = timedelta(seconds=10)
-            self.session.get(
-                f"{API_BASE_URL}/ping/start?connectorId={self.connectorId}",
+        async with asyncio.timeout(10):
+            # Grab active context variables to limit data required to be fetched from API
+            # Note: using context is not required if there is no need or ability to limit
+            # data retrieved from API.
+            response = await self.session.get(
+                f"{API_BASE_URL}/connector/{self.connectorId}/operationaldata",
                 headers=self.headers,
             )
-        return data
+
+            if response.status == 401:
+                raise ConfigEntryAuthFailed
+
+            if response.status != 200:
+                raise UpdateFailed(f"Error communicating with API: {response.status}")
+
+            data = await response.json()
+
+            data["chargingState"] = data["ocpp"]["chargingState"]
+            data["status"] = data["ocpp"]["status"]
+            del data["ocpp"]
+
+            # Update every 10 seconds while charging, otherwise every minute
+            if self.is_charging and data["chargingState"] != "Charging":
+                self.is_charging = False
+                self.update_interval = timedelta(seconds=60)
+            elif not self.is_charging and data["chargingState"] == "Charging":
+                self.is_charging = True
+                self.update_interval = timedelta(seconds=10)
+                self.session.get(
+                    f"{API_BASE_URL}/ping/start?connectorId={self.connectorId}",
+                    headers=self.headers,
+                )
+            return data
 
         #     except ApiAuthError as err:
         #     # Raising ConfigEntryAuthFailed will cancel future updates
