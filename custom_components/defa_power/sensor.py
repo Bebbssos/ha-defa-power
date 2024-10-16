@@ -1,4 +1,4 @@
- """DEFA Power sensor entities."""
+"""DEFA Power sensor entities."""
 
 from collections.abc import Callable
 from enum import Enum
