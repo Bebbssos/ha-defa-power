@@ -1,4 +1,4 @@
-"""DEFA Power sensor entities."""
+ """DEFA Power sensor entities."""
 
 from collections.abc import Callable
 from enum import Enum
@@ -7,6 +7,7 @@ from typing import Final
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
+    SensorEntity,
     SensorEntityDescription,
     SensorStateClass,
     dataclass,
@@ -255,7 +256,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     await async_setup_platform(hass, entry.data, async_add_entities)
 
 
-class DefaChargerEntity(CoordinatorEntity):
+class DefaChargerEntity(CoordinatorEntity, SensorEntity):
     """Base class for DEFA Power entities."""
 
     def __init__(
@@ -272,9 +273,12 @@ class DefaChargerEntity(CoordinatorEntity):
         self.entity_description = description
         # self._attr_name = f"{coordinator.name} {description.name}"
         self._attr_unique_id = f"{instance_id}_{id}_{description.key}"
-        self._attr_device_class = description.device_class
-        self._attr_state_class = description.state_class
+        if description.device_class is not None:
+            self._attr_device_class = description.device_class
+        if description.state_class is not None:
+            self._attr_state_class = description.state_class
         self._attr_native_unit_of_measurement = description.native_unit_of_measurement
+        self._attr_unit_of_measurement = description.native_unit_of_measurement
         self._attr_icon = description.icon
 
         if description.disabled_by_default:
@@ -313,7 +317,7 @@ class DefaChargerEntity(CoordinatorEntity):
         return self._attr_native_unit_of_measurement
 
 
-class DefaConnectorEntity(CoordinatorEntity):
+class DefaConnectorEntity(CoordinatorEntity, SensorEntity):
     """Base class for DEFA Power entities."""
 
     def __init__(
@@ -337,9 +341,12 @@ class DefaConnectorEntity(CoordinatorEntity):
         self.entity_description = description
         # self._attr_name = f"{coordinator.name} {description.name}"
         self._attr_unique_id = f"{instance_id}_{id}_{description.key}"
-        self._attr_device_class = description.device_class
-        self._attr_state_class = description.state_class
+        if description.device_class is not None:
+            self._attr_device_class = description.device_class
+        if description.state_class is not None:
+            self._attr_state_class = description.state_class
         self._attr_native_unit_of_measurement = description.native_unit_of_measurement
+        self._attr_unit_of_measurement = description.native_unit_of_measurement
         self._attr_icon = description.icon
 
         if description.disabled_by_default:
