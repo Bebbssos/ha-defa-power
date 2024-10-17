@@ -259,6 +259,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
 class DefaChargerEntity(CoordinatorEntity, SensorEntity):
     """Base class for DEFA Power entities."""
 
+    state_val = None
+    _attr_has_entity_name = True
+
     def __init__(
         self,
         id: str,
@@ -273,6 +276,7 @@ class DefaChargerEntity(CoordinatorEntity, SensorEntity):
         self.entity_description = description
         # self._attr_name = f"{coordinator.name} {description.name}"
         self._attr_unique_id = f"{instance_id}_{id}_{description.key}"
+        self._attr_translation_key = f"defa_power_{description.key}"
         if description.device_class is not None:
             self._attr_device_class = description.device_class
         if description.state_class is not None:
@@ -297,14 +301,20 @@ class DefaChargerEntity(CoordinatorEntity, SensorEntity):
         return self.coordinator.last_update_success
 
     def _set_state(self):
-        self.state_val = self.coordinator.data["chargers"][self.id][
+        """Update the state from coordinator. Return True if the state has changed."""
+        new_state = self.coordinator.data["chargers"][self.id][
             self.entity_description.field_name
         ]
 
+        if new_state != self.state_val:
+            self.state_val = new_state
+            return True
+        return False
+
     @callback
     def _handle_coordinator_update(self) -> None:
-        self._set_state()
-        self.async_write_ha_state()
+        if self._set_state():
+            self.async_write_ha_state()
 
     @property
     def state(self):
@@ -319,6 +329,9 @@ class DefaChargerEntity(CoordinatorEntity, SensorEntity):
 
 class DefaConnectorEntity(CoordinatorEntity, SensorEntity):
     """Base class for DEFA Power entities."""
+
+    state_val = None
+    _attr_has_entity_name = True
 
     def __init__(
         self,
@@ -341,6 +354,7 @@ class DefaConnectorEntity(CoordinatorEntity, SensorEntity):
         self.entity_description = description
         # self._attr_name = f"{coordinator.name} {description.name}"
         self._attr_unique_id = f"{instance_id}_{id}_{description.key}"
+        self._attr_translation_key = f"defa_power_{description.key}"
         if description.device_class is not None:
             self._attr_device_class = description.device_class
         if description.state_class is not None:
@@ -365,17 +379,24 @@ class DefaConnectorEntity(CoordinatorEntity, SensorEntity):
         return self.coordinator.last_update_success
 
     def _set_state(self):
+        """Update the state from coordinator. Return True if the state has changed."""
         if self.id_lookup_required:
-            self.state_val = self.coordinator.data["connectors"][self.id][
+            new_state = self.coordinator.data["connectors"][self.id][
                 self.entity_description.field_name
             ]
         else:
-            self.state_val = self.coordinator.data[self.entity_description.field_name]
+            new_state = self.coordinator.data[self.entity_description.field_name]
+
+        if new_state != self.state_val:
+            self.state_val = new_state
+            return True
+
+        return False
 
     @callback
     def _handle_coordinator_update(self) -> None:
-        self._set_state()
-        self.async_write_ha_state()
+        if self._set_state():
+            self.async_write_ha_state()
 
     @property
     def state(self):

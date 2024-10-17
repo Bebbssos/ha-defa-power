@@ -9,5 +9,5 @@
   "iot_class": "cloud_polling",
   "name": "DEFA Power",
   "requirements": [],
-  "version": "0.1.0"
+  "version": "0.2.0"
 }

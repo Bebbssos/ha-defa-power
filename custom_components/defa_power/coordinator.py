@@ -148,8 +148,8 @@ class CloudChargeOperationalDataCoordinator(DataUpdateCoordinator):
             elif not self.is_charging and data["chargingState"] == "Charging":
                 self.is_charging = True
                 self.update_interval = timedelta(seconds=10)
-                self.session.get(
-                    f"{API_BASE_URL}/ping/start?connectorId={self.connectorId}",
+                await self.session.post(
+                    f"{API_BASE_URL}/connector/{self.connectorId}/startliveconsumption",
                     headers=self.headers,
                 )
             return data

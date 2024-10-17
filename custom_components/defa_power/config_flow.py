@@ -1,6 +1,7 @@
 """Config flow for DEFA power integration."""
 
 import logging
+import re
 from typing import Any
 import uuid
 
@@ -9,6 +10,11 @@ import voluptuous as vol
 from homeassistant import config_entries, core
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.selector import (
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+)
 
 from .const import API_BASE_URL, DOMAIN, NAME
 
@@ -35,7 +41,16 @@ MANUAL_ENTRY_SCHEMA = vol.Schema(
 )
 CHOICE_SCHEMA = vol.Schema(
     {
-        vol.Required("method"): vol.In(["phone_number", "manual"]),
+        vol.Required("method"): SelectSelector(
+            SelectSelectorConfig(
+                translation_key="login_method",
+                mode=SelectSelectorMode.LIST,
+                options=[
+                    "phone_number",
+                    "manual",
+                ],
+            )
+        )
     }
 )
 
@@ -82,6 +97,11 @@ def get_instance_id():
     return str(uuid.uuid4())
 
 
+def normalize_phone_number(phone_number: str) -> str:
+    """Normalize phone number to remove non-numeric characters."""
+    return re.sub(r"\D", "", phone_number)
+
+
 class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """DEFA power config flow."""
 
@@ -110,6 +130,9 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
+                user_input[CONF_PHONE_NUMBER] = normalize_phone_number(
+                    user_input[CONF_PHONE_NUMBER]
+                )
                 await send_code(
                     user_input[CONF_PHONE_NUMBER],
                     user_input.get(CONF_DEV_TOKEN),
@@ -117,7 +140,7 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
             except Exception as e:
                 _LOGGER.error("Prelogin error: %s", e)
-                errors["base"] = "prelogin_error"
+                errors["base"] = "phonenumber_prelogin_error"
             if not errors:
                 # Input is valid, set data.
                 self.send_code_data = user_input
@@ -143,7 +166,7 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
             except Exception as e:
                 _LOGGER.error("Login error: %s", e)
-                errors["base"] = "login_error"
+                errors["base"] = "phonenumber_login_error"
 
             if not errors:
                 # User is done adding repos, create the config entry.

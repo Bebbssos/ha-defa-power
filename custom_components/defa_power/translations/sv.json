@@ -1,0 +1,82 @@
+{
+    "config": {
+        "step": {
+            "choose_method": {
+                "title": "Välj inloggningsmetod",
+                "data": {
+                    "method": "Inloggningsmetod"
+                }
+            },
+            "send_code": {
+                "title": "Logga in med telefonnummer",
+                "description": "Ange ditt telefonnummer för att få en SMS-kod",
+                "data": {
+                    "phone_number": "Telefonnummer (med landskod)",
+                    "dev_token": "Utvecklartoken"
+                }
+            },
+            "sms_code": {
+                "title": "Ange SMS-kod",
+                "description": "Ange SMS-koden du fick",
+                "data": {
+                    "sms_code": "SMS-kod"
+                }
+            },
+            "manual_entry": {
+                "title": "Manuell inloggning",
+                "description": "Ange användar-id och token",
+                "data": {
+                    "user_id": "Användar-id",
+                    "token": "Token"
+                }
+            }
+        },
+        "error": {
+            "phonenumber_prelogin_error": "Misslyckades med att skicka SMS-kod. Angav du rätt telefonnummer?",
+            "phonenumber_login_error": "Inloggning misslyckades. Angav du rätt SMS-kod?",
+            "unknown": "Ett okänt fel inträffade"
+        },
+        "abort": {
+            "already_configured": "Denna enhet är redan konfigurerad"
+        }
+    },
+    "selector": {
+        "login_method": {
+            "options": {
+                "phone_number": "Använd telefonnummer",
+                "manual": "Ange användar-id och token manuellt"
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "defa_power_currency_code": {
+                "name": "Valutakod"
+            },
+            "defa_power_meter_value": {
+                "name": "Mätarvärde"
+            },
+            "defa_power_transaction_meter_value": {
+                "name": "Transaktionsmätarvärde"
+            },
+            "defa_power_power_consumption": {
+                "name": "Energiförbrukning"
+            },
+            "defa_power_charging_state": {
+                "name": "Laddningstillstånd"
+            },
+            "defa_power_status": {
+                "name": "Status"
+            },
+            "defa_power_power": {
+                "name": "Effekt"
+            },
+            "defa_power_ampere": {
+                "name": "Ampere"
+            },
+            "defa_power_firmware_version": {
+                "name": "Firmware-version"
+            }
+        }
+    }
+}
