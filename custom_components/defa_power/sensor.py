@@ -1,21 +1,20 @@
 """DEFA Power sensor entities."""
 
-from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum
 import logging
-from typing import Final
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
     SensorStateClass,
-    dataclass,
 )
 from homeassistant.const import UnitOfElectricCurrent, UnitOfEnergy, UnitOfPower
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import DeviceInfo
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
@@ -34,52 +33,28 @@ class Coordinator(Enum):
     OPERATIONAL_DATA = 2
 
 
-@dataclass
-class DefaPowerSensorDescriptionMixin:
-    """Define an entity description mixin for sensor entities."""
-
-    field_name: str
-    round_digits: int | None
-    disabled_by_default: bool
-
-
-@dataclass
-class DefaPowerSensorDescriptionConnectorMixin:
-    """Define an entity description mixin for sensor entities."""
-
-    coordinator: Coordinator
-
-
-@dataclass
-class DefaPowerSensorDescription(
-    SensorEntityDescription, DefaPowerSensorDescriptionMixin
-):
+@dataclass(frozen=True, kw_only=True)
+class DefaPowerSensorDescription(SensorEntityDescription):
     """Class to describe an DEFA Power sensor entity."""
 
-
-@dataclass
-class DefaPowerSensorConnectorDescription(
-    DefaPowerSensorDescription, DefaPowerSensorDescriptionConnectorMixin
-):
-    """Class to describe a DEFA Power sensor entity."""
+    field_name: str
+    round_digits: int | None = None
+    disabled_by_default: bool = False
+    coordinator: Coordinator = Coordinator.CHARGERS
 
 
-DEFA_POWER_CHARGER_SENSOR_TYPES: Final[tuple[DefaPowerSensorDescription, ...]] = (
+DEFA_POWER_CHARGER_SENSOR_TYPES: tuple[DefaPowerSensorDescription, ...] = (
     DefaPowerSensorDescription(
         key="currency_code",
         name="Currency code",
         icon="mdi:currency-usd",
         field_name="currencyCode",
-        round_digits=None,
-        native_unit_of_measurement=None,
         disabled_by_default=True,
     ),
 )
 
-DEFA_POWER_CONNECTOR_SENSOR_TYPES: Final[
-    tuple[DefaPowerSensorConnectorDescription, ...]
-] = (
-    DefaPowerSensorConnectorDescription(
+DEFA_POWER_CONNECTOR_SENSOR_TYPES: tuple[DefaPowerSensorDescription, ...] = (
+    DefaPowerSensorDescription(
         key="meter_value",
         name="Meter value",
         icon="mdi:counter",
@@ -89,9 +64,8 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: Final[
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
         device_class=SensorDeviceClass.ENERGY,
-        disabled_by_default=False,
     ),
-    DefaPowerSensorConnectorDescription(
+    DefaPowerSensorDescription(
         key="transaction_meter_value",
         name="Transaction meter value",
         icon="mdi:counter",
@@ -101,9 +75,8 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: Final[
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
         device_class=SensorDeviceClass.ENERGY,
-        disabled_by_default=False,
     ),
-    DefaPowerSensorConnectorDescription(
+    DefaPowerSensorDescription(
         key="power_consumption",
         name="Power consumption",
         icon="mdi:lightning-bolt",
@@ -113,61 +86,47 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: Final[
         native_unit_of_measurement=UnitOfPower.KILO_WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER,
-        disabled_by_default=False,
     ),
-    DefaPowerSensorConnectorDescription(
+    DefaPowerSensorDescription(
         key="charging_state",
         name="Charging state",
         icon="mdi:battery-charging",
         field_name="chargingState",
         coordinator=Coordinator.OPERATIONAL_DATA,
-        round_digits=None,
-        native_unit_of_measurement=None,
-        disabled_by_default=False,
     ),
-    DefaPowerSensorConnectorDescription(
+    DefaPowerSensorDescription(
         key="status",
         name="Status",
         icon="mdi:ev-station",
         field_name="status",
         coordinator=Coordinator.OPERATIONAL_DATA,
-        round_digits=None,
-        native_unit_of_measurement=None,
         disabled_by_default=True,
     ),
-    DefaPowerSensorConnectorDescription(
+    DefaPowerSensorDescription(
         key="power",
         name="Power",
         icon="mdi:lightning-bolt",
         field_name="power",
-        coordinator=Coordinator.CHARGERS,
         round_digits=2,
         native_unit_of_measurement=UnitOfPower.KILO_WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER,
-        disabled_by_default=False,
     ),
-    DefaPowerSensorConnectorDescription(
+    DefaPowerSensorDescription(
         key="ampere",
         name="Ampere",
         icon="mdi:current-ac",
         field_name="ampere",
-        coordinator=Coordinator.CHARGERS,
         round_digits=0,
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.CURRENT,
-        disabled_by_default=False,
     ),
-    DefaPowerSensorConnectorDescription(
+    DefaPowerSensorDescription(
         key="firmware_version",
         name="Firmware version",
         icon="mdi:information-outline",
         field_name="firmwareVersion",
-        coordinator=Coordinator.CHARGERS,
-        round_digits=None,
-        native_unit_of_measurement=None,
-        disabled_by_default=False,
     ),
 )
 
@@ -175,7 +134,7 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: Final[
 class ChargerDevice:
     """Representation of a DEFA Power charger device."""
 
-    def __init__(self, data, instance_id):
+    def __init__(self, data, instance_id) -> None:
         """Initialize the device."""
         self._device_info = DeviceInfo(
             identifiers={(DOMAIN, instance_id, data["id"])},
@@ -190,7 +149,7 @@ class ChargerDevice:
 class ConnectorDevice:
     """Representation of a DEFA Power connector device."""
 
-    def __init__(self, data, instance_id):
+    def __init__(self, data, instance_id) -> None:
         """Initialize the device."""
         self._device_info = DeviceInfo(
             identifiers={(DOMAIN, instance_id, data["id"])},
@@ -210,48 +169,46 @@ class ConnectorDevice:
 async def async_setup_platform(
     hass: HomeAssistant,
     config: ConfigType,
-    async_add_entities: Callable,
-    discovery_info: DiscoveryInfoType | None = None,
+    async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the sensor platform."""
 
     instance_id = config.get("instance_id") or "default"
-    chargersCoordinator = CloudChargeChargersCoordinator(hass, config)
-    await chargersCoordinator.async_config_entry_first_refresh()
+    chargers_coordinator = CloudChargeChargersCoordinator(hass, config)
+    await chargers_coordinator.async_config_entry_first_refresh()
     entities = []
 
-    for connectorId, val in chargersCoordinator.data["chargers"].items():
+    for connector_id, val in chargers_coordinator.data["chargers"].items():
         device = ChargerDevice(val, instance_id)
         entities.extend(
             DefaChargerEntity(
-                connectorId, chargersCoordinator, sensorType, device, instance_id
+                connector_id, chargers_coordinator, sensorType, device, instance_id
             )
             for sensorType in DEFA_POWER_CHARGER_SENSOR_TYPES
         )
 
-    for connectorId, val in chargersCoordinator.data["connectors"].items():
+    for connector_id, val in chargers_coordinator.data["connectors"].items():
         operational_data_coordinator = CloudChargeOperationalDataCoordinator(
-            connectorId, hass, config
+            connector_id, hass, config
         )
         await operational_data_coordinator.async_config_entry_first_refresh()
         device = ConnectorDevice(val, instance_id)
 
-        for sensorType in DEFA_POWER_CONNECTOR_SENSOR_TYPES:
-            if sensorType.coordinator == Coordinator.CHARGERS:
-                coordinator = chargersCoordinator
-            elif sensorType.coordinator == Coordinator.OPERATIONAL_DATA:
+        for sensor_type in DEFA_POWER_CONNECTOR_SENSOR_TYPES:
+            coordinator = chargers_coordinator
+            if sensor_type.coordinator == Coordinator.OPERATIONAL_DATA:
                 coordinator = operational_data_coordinator
 
             entities.append(
                 DefaConnectorEntity(
-                    connectorId, coordinator, sensorType, device, instance_id
+                    connector_id, coordinator, sensor_type, device, instance_id
                 )
             )
 
     async_add_entities(entities, update_before_add=True)
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
     """Set up sensor platform from a config entry."""
     await async_setup_platform(hass, entry.data, async_add_entities)
 
@@ -269,9 +226,15 @@ class DefaChargerEntity(CoordinatorEntity, SensorEntity):
         description: DefaPowerSensorDescription,
         device: ChargerDevice,
         instance_id: str,
-    ):
+    ) -> None:
         """Initialize the entity."""
-        super().__init__(coordinator, id)
+        if description.coordinator == Coordinator.CHARGERS:
+            self.id_lookup_required = True
+            context = id
+        else:
+            self.id_lookup_required = False
+            context = description.field_name
+        super().__init__(coordinator, context)
         self.coordinator = coordinator
         self.entity_description = description
         # self._attr_name = f"{coordinator.name} {description.name}"
@@ -302,13 +265,17 @@ class DefaChargerEntity(CoordinatorEntity, SensorEntity):
 
     def _set_state(self):
         """Update the state from coordinator. Return True if the state has changed."""
-        new_state = self.coordinator.data["chargers"][self.id][
-            self.entity_description.field_name
-        ]
+        if self.id_lookup_required:
+            new_state = self.coordinator.data["chargers"][self.id][
+                self.entity_description.field_name
+            ]
+        else:
+            new_state = self.coordinator.data[self.entity_description.field_name]
 
         if new_state != self.state_val:
             self.state_val = new_state
             return True
+
         return False
 
     @callback
@@ -337,10 +304,10 @@ class DefaConnectorEntity(CoordinatorEntity, SensorEntity):
         self,
         id: str,
         coordinator,
-        description: DefaPowerSensorConnectorDescription,
+        description: DefaPowerSensorDescription,
         device: ConnectorDevice,
         instance_id: str,
-    ):
+    ) -> None:
         """Initialize the entity."""
         if description.coordinator == Coordinator.CHARGERS:
             self.id_lookup_required = True
