@@ -4,13 +4,11 @@ import asyncio
 from datetime import timedelta
 import logging
 
-from .models import Charger
 from homeassistant.exceptions import ConfigEntryAuthFailed
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.entity_component import ConfigType
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import API_BASE_URL
+from .cloudcharge_api.client import CloudChargeAPIClient
+from .cloudcharge_api.exceptions import CloudChargeAPIError, CloudChargeAuthError
 
 CONF_TOKEN = "token"
 CONF_USER_ID = "userId"
@@ -21,7 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 class CloudChargeChargersCoordinator(DataUpdateCoordinator):
     """CloudCharge chargers coordinator."""
 
-    def __init__(self, hass, config: ConfigType):
+    def __init__(self, hass, client: CloudChargeAPIClient):
         """Initialize coordinator."""
         super().__init__(
             hass,
@@ -35,15 +33,7 @@ class CloudChargeChargersCoordinator(DataUpdateCoordinator):
             # being dispatched to listeners
             always_update=True,
         )
-        self.config = config
-
-    async def _async_setup(self):
-        """Set up the coordinator."""
-        self.session = async_get_clientsession(self.hass)
-        self.headers = {
-            "x-authorization": self.config[CONF_TOKEN],
-            "x-user": self.config[CONF_USER_ID],
-        }
+        self.client = client
 
     async def _async_update_data(self):
         """Fetch data from API endpoint."""
@@ -54,17 +44,12 @@ class CloudChargeChargersCoordinator(DataUpdateCoordinator):
             # Grab active context variables to limit data required to be fetched from API
             # Note: using context is not required if there is no need or ability to limit
             # data retrieved from API.
-            response = await self.session.get(
-                f"{API_BASE_URL}/chargers/private", headers=self.headers
-            )
-
-            if response.status == 401:
-                raise ConfigEntryAuthFailed
-
-            if response.status != 200:
-                raise UpdateFailed(f"Error communicating with API: {response.status}")
-
-            chargers_data: list[Charger] = await response.json()
+            try:
+                chargers_data = await self.client.async_get_private_chargers()
+            except CloudChargeAuthError as err:
+                raise ConfigEntryAuthFailed from err
+            except CloudChargeAPIError as err:
+                raise UpdateFailed(f"Error communicating with API: {err}") from err
 
             chargers = {}
             connectors = {}
@@ -78,18 +63,11 @@ class CloudChargeChargersCoordinator(DataUpdateCoordinator):
 
             return {"chargers": chargers, "connectors": connectors}
 
-        #     except ApiAuthError as err:
-        #     # Raising ConfigEntryAuthFailed will cancel future updates
-        #     # and start a config flow with SOURCE_REAUTH (async_step_reauth)
-        #     raise ConfigEntryAuthFailed from err
-        # except ApiError as err:
-        #     raise UpdateFailed(f"Error communicating with API: {err}")
-
 
 class CloudChargeOperationalDataCoordinator(DataUpdateCoordinator):
     """CloudCharge operational data coordinator."""
 
-    def __init__(self, connectorId: str, hass, config: ConfigType):
+    def __init__(self, connector_id: str, hass, client: CloudChargeAPIClient):
         """Initialize coordinator."""
         super().__init__(
             hass,
@@ -103,17 +81,9 @@ class CloudChargeOperationalDataCoordinator(DataUpdateCoordinator):
             # being dispatched to listeners
             always_update=True,
         )
-        self.connectorId = connectorId
-        self.config = config
+        self.connector_id = connector_id
+        self.client = client
         self.is_charging = False
-
-    async def _async_setup(self):
-        """Set up the coordinator."""
-        self.session = async_get_clientsession(self.hass)
-        self.headers = {
-            "x-authorization": self.config[CONF_TOKEN],
-            "x-user": self.config[CONF_USER_ID],
-        }
 
     async def _async_update_data(self):
         """Fetch data from API endpoint."""
@@ -124,18 +94,12 @@ class CloudChargeOperationalDataCoordinator(DataUpdateCoordinator):
             # Grab active context variables to limit data required to be fetched from API
             # Note: using context is not required if there is no need or ability to limit
             # data retrieved from API.
-            response = await self.session.get(
-                f"{API_BASE_URL}/connector/{self.connectorId}/operationaldata",
-                headers=self.headers,
-            )
-
-            if response.status == 401:
-                raise ConfigEntryAuthFailed
-
-            if response.status != 200:
-                raise UpdateFailed(f"Error communicating with API: {response.status}")
-
-            data = await response.json()
+            try:
+                data = await self.client.async_get_operational_data(self.connector_id)
+            except CloudChargeAuthError as err:
+                raise ConfigEntryAuthFailed from err
+            except CloudChargeAPIError as err:
+                raise UpdateFailed(f"Error communicating with API: {err}") from err
 
             data["chargingState"] = data["ocpp"]["chargingState"]
             data["status"] = data["ocpp"]["status"]
@@ -148,15 +112,5 @@ class CloudChargeOperationalDataCoordinator(DataUpdateCoordinator):
             elif not self.is_charging and data["chargingState"] == "Charging":
                 self.is_charging = True
                 self.update_interval = timedelta(seconds=10)
-                await self.session.post(
-                    f"{API_BASE_URL}/connector/{self.connectorId}/startliveconsumption",
-                    headers=self.headers,
-                )
+                await self.client.async_start_live_consumption(self.connector_id)
             return data
-
-        #     except ApiAuthError as err:
-        #     # Raising ConfigEntryAuthFailed will cancel future updates
-        #     # and start a config flow with SOURCE_REAUTH (async_step_reauth)
-        #     raise ConfigEntryAuthFailed from err
-        # except ApiError as err:
-        #     raise UpdateFailed(f"Error communicating with API: {err}")

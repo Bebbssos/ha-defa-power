@@ -32,8 +32,15 @@
             }
         },
         "error": {
-            "phonenumber_prelogin_error": "Misslyckades med att skicka SMS-kod. Angav du rätt telefonnummer?",
-            "phonenumber_login_error": "Inloggning misslyckades. Angav du rätt SMS-kod?",
+            "phonenumber_request_error": "Inloggningsförfrågningsfel",
+            "phonenumber_invalid": "Ogiltigt telefonnummer",
+            "phonenumber_invalid_dev_token": "Ogiltig utvecklartoken",
+            "phonenumber_login_error": "Okänt fel inträffade",
+            "phonenumber_bad_request_error": "Felaktig förfrågan",
+            "phonenumber_invalid_login": "Ogiltig inloggning",
+            "phonenumber_no_login_attempts_found": "Inga inloggningsförsök hittades. Försök att skicka koden igen.",
+            "manual_entry_request_error": "Förfrågningsfel",
+            "manual_entry_auth_error": "Ogiltigt användar-id eller token",
             "unknown": "Ett okänt fel inträffade"
         },
         "abort": {
@@ -60,7 +67,7 @@
                 "name": "Transaktionsmätarvärde"
             },
             "defa_power_power_consumption": {
-                "name": "Energiförbrukning"
+                "name": "Strömförbrukning"
             },
             "defa_power_charging_state": {
                 "name": "Laddningstillstånd"

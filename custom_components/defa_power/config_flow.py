@@ -16,6 +16,16 @@ from homeassistant.helpers.selector import (
     SelectSelectorMode,
 )
 
+from .cloudcharge_api.client import CloudChargeAPIClient
+from .cloudcharge_api.exceptions import (
+    CloudChargeAPIError,
+    CloudChargeAuthError,
+    CloudChargeBadRequestError,
+    CloudChargeBadRequestErrorType,
+    CloudChargeForbiddenError,
+    CloudChargeForbiddenErrorType,
+    CloudChargeRequestError,
+)
 from .const import API_BASE_URL, DOMAIN, NAME
 
 _LOGGER = logging.getLogger(__name__)
@@ -105,6 +115,9 @@ def normalize_phone_number(phone_number: str) -> str:
 class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """DEFA power config flow."""
 
+    VERSION = 2
+    MINOR_VERSION = 1
+
     send_code_data: dict[str, Any] | None
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
@@ -133,14 +146,21 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 user_input[CONF_PHONE_NUMBER] = normalize_phone_number(
                     user_input[CONF_PHONE_NUMBER]
                 )
-                await send_code(
-                    user_input[CONF_PHONE_NUMBER],
-                    user_input.get(CONF_DEV_TOKEN),
-                    self.hass,
+                client = CloudChargeAPIClient(API_BASE_URL)
+                await client.async_send_sms_code(
+                    user_input[CONF_PHONE_NUMBER], user_input.get(CONF_DEV_TOKEN)
                 )
-            except Exception as e:
-                _LOGGER.error("Prelogin error: %s", e)
-                errors["base"] = "phonenumber_prelogin_error"
+            except CloudChargeBadRequestError as e:
+                _LOGGER.error("Bad request %s error: %s", e.raw_message, e)
+                if e.error_type == CloudChargeBadRequestErrorType.INVALID_PHONE_NUMBER:
+                    errors["base"] = "phonenumber_invalid"
+                elif e.error_type == CloudChargeBadRequestErrorType.INVALID_DEV_TOKEN:
+                    errors["base"] = "phonenumber_invalid_dev_token"
+                else:
+                    errors["base"] = "phonenumber_prelogin_error"
+            except CloudChargeRequestError as e:
+                _LOGGER.error("Request error: %s", e)
+                errors["base"] = "phonenumber_request_error"
             if not errors:
                 # Input is valid, set data.
                 self.send_code_data = user_input
@@ -156,17 +176,40 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             # Validate the path.
-            data = None
+            data = {}
             try:
-                data = await login(
+                client = CloudChargeAPIClient(API_BASE_URL)
+                await client.async_login_with_phone_number(
                     self.send_code_data[CONF_PHONE_NUMBER],
                     user_input[CONF_SMS_CODE],
                     self.send_code_data.get(CONF_DEV_TOKEN),
-                    self.hass,
                 )
-            except Exception as e:
-                _LOGGER.error("Login error: %s", e)
-                errors["base"] = "phonenumber_login_error"
+                data["credentials"] = client.export_credentials()
+            except CloudChargeBadRequestError as e:
+                _LOGGER.error("Bad request %s error: %s", e.raw_message, e)
+                if e.error_type == CloudChargeBadRequestErrorType.INVALID_PHONE_NUMBER:
+                    errors["base"] = "phonenumber_invalid"
+                else:
+                    errors["base"] = "phonenumber_login_error"
+            except CloudChargeForbiddenError as e:
+                _LOGGER.error("Forbidden %s error: %s", e.raw_message, e)
+                if e.error_type == CloudChargeForbiddenErrorType.INVALID_DEV_TOKEN:
+                    errors["base"] = "phonenumber_invalid_dev_token"
+                elif (
+                    e.error_type
+                    == CloudChargeForbiddenErrorType.INVALID_LOGIN_CREDENTIALS
+                ):
+                    errors["base"] = "phonenumber_invalid_login"
+                elif (
+                    e.error_type
+                    == CloudChargeForbiddenErrorType.NO_LOGIN_ATTEMPTS_FOUND
+                ):
+                    errors["base"] = "phonenumber_no_login_attempts_found"
+                else:
+                    errors["base"] = "phonenumber_login_error"
+            except CloudChargeRequestError as e:
+                _LOGGER.error("Request error: %s", e)
+                errors["base"] = "phonenumber_request_error"
 
             if not errors:
                 # User is done adding repos, create the config entry.
@@ -184,18 +227,21 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Validate the input.
             user_id = user_input[CONF_USER_ID]
             token = user_input[CONF_TOKEN]
-            if user_id and token:
-                # Input is valid, create the config entry.
-                return self.async_create_entry(
-                    title=NAME,
-                    data={
-                        "userId": user_id,
-                        "token": token,
-                        "instance_id": get_instance_id(),
-                    },
-                )
+            data = {}
+            try:
+                client = CloudChargeAPIClient(API_BASE_URL)
+                await client.async_login_with_token(user_id, token)
+                data["credentials"] = client.export_credentials()
+            except CloudChargeAuthError as e:
+                _LOGGER.error("Auth error: %s", e)
+                errors["base"] = "manual_entry_auth_error"
+            except CloudChargeAPIError as e:
+                _LOGGER.error("Request error: %s", e)
+                errors["base"] = "manual_entry_request_error"
 
-            errors["base"] = "manual_entry_error"
+            if not errors:
+                data["instance_id"] = get_instance_id()
+                return self.async_create_entry(title=NAME, data=data)
 
         return self.async_show_form(
             step_id="manual_entry", data_schema=MANUAL_ENTRY_SCHEMA, errors=errors

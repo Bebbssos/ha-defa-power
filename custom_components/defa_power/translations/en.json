@@ -32,8 +32,15 @@
             }
         },
         "error": {
-            "phonenumber_prelogin_error": "Failed to send SMS code. Did you enter the correct phone number?",
-            "phonenumber_login_error": "Login failed. Did you enter the correct SMS code?",
+            "phonenumber_request_error": "Login request error",
+            "phonenumber_invalid": "Invalid phone number",
+            "phonenumber_invalid_dev_token": "Invalid developer token",
+            "phonenumber_login_error": "Unknown error occurred",
+            "phonenumber_bad_request_error": "Bad request error",
+            "phonenumber_invalid_login": "Invalid login",
+            "phonenumber_no_login_attempts_found": "No login attempts found. Please try sending code again.",
+            "manual_entry_request_error": "Request error",
+            "manual_entry_auth_error": "Invalid user-id or token",
             "unknown": "Unknown error occurred"
         },
         "abort": {

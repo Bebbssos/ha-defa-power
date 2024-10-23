@@ -1,15 +1,85 @@
 """DEFA Power integration for Home Assistant."""
 
 import logging
+from typing import TypedDict
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+
+from .cloudcharge_api.client import CloudChargeAPIClient
+from .const import API_BASE_URL
+from .coordinator import (
+    CloudChargeChargersCoordinator,
+    CloudChargeOperationalDataCoordinator,
+)
+from .devices import ChargerDevice, ConnectorDevice
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
+class RuntimeDataCharger(TypedDict):
+    """Runtime data for a charger."""
+
+    device: ChargerDevice
+
+
+class RuntimeDataConnector(TypedDict):
+    """Runtime data for a connector."""
+
+    device: ConnectorDevice
+    operational_data_coordinator: CloudChargeOperationalDataCoordinator
+
+
+class RuntimeData(TypedDict):
+    """Runtime data for DEFA Power."""
+
+    chargers_coordinator: CloudChargeChargersCoordinator
+    chargers: dict[str, RuntimeDataCharger]
+    connectors: dict[str, RuntimeDataConnector]
+
+
+type DefaPowerConfigEntry = ConfigEntry[RuntimeData]
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) -> bool:
     """Set up DEFA Power from a config entry."""
     _LOGGER.info("Setting up DEFA Power from config entry")
+
+    client = CloudChargeAPIClient(API_BASE_URL)
+    client.import_credentials(entry.data["credentials"])
+
+    chargers_coordinator = CloudChargeChargersCoordinator(hass, client)
+    await chargers_coordinator.async_config_entry_first_refresh()
+
+    instance_id = entry.data.get("instance_id") or "default"
+    chargers = {}
+    connectors = {}
+    data: RuntimeData = {
+        "chargers_coordinator": chargers_coordinator,
+        "chargers": chargers,
+        "connectors": connectors,
+    }
+
+    for connector_id, val in chargers_coordinator.data["chargers"].items():
+        c: RuntimeDataCharger = {}
+        chargers[connector_id] = c
+
+        c["device"] = ChargerDevice(val, instance_id)
+
+    for connector_id, val in chargers_coordinator.data["connectors"].items():
+        c: RuntimeDataConnector = {}
+        connectors[connector_id] = c
+
+        operational_data_coordinator = CloudChargeOperationalDataCoordinator(
+            connector_id, hass, client
+        )
+        await operational_data_coordinator.async_config_entry_first_refresh()
+
+        c["device"] = ConnectorDevice(val, instance_id)
+        c["operational_data_coordinator"] = operational_data_coordinator
+
+    entry.runtime_data = data
+
     await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
     return True
 
@@ -18,4 +88,39 @@ async def async_unload_entry(hass: HomeAssistant, entry) -> bool:
     """Unload a config entry."""
     _LOGGER.info("Unloading DEFA Power config entry")
     await hass.config_entries.async_forward_entry_unload(entry, "sensor")
+    return True
+
+
+async def async_migrate_entry(hass, config_entry: ConfigEntry):
+    """Migrate old entry."""
+    _LOGGER.debug(
+        "Migrating configuration from version %s.%s",
+        config_entry.version,
+        config_entry.minor_version,
+    )
+
+    if config_entry.version > 2:
+        # This means the user has downgraded from a future version
+        return False
+
+    new_data = {**config_entry.data}
+
+    if config_entry.version == 1:
+        new_data["credentials"] = {
+            "user_id": config_entry.data["userId"],
+            "token": config_entry.data["token"],
+        }
+        del new_data["userId"]
+        del new_data["token"]
+
+    hass.config_entries.async_update_entry(
+        config_entry, data=new_data, minor_version=1, version=2
+    )
+
+    _LOGGER.debug(
+        "Migration to configuration version %s.%s successful",
+        config_entry.version,
+        config_entry.minor_version,
+    )
+
     return True
