@@ -32,9 +32,10 @@ class CloudChargeAPIClient:
         """Login with token and test."""
         headers = self.__build_auth_headers(user_id, token)
 
-        async with aiohttp.ClientSession() as session:
-            response = await session.get(f"{self.__base_url}/profile", headers=headers)
-
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(f"{self.__base_url}/profile", headers=headers) as response,
+        ):
             await self.__async_check_response(response)
 
         self.__headers = headers
@@ -53,9 +54,10 @@ class CloudChargeAPIClient:
         if dev_token:
             payload["devToken"] = dev_token
 
-        async with aiohttp.ClientSession() as session:
-            response = await session.post(f"{self.__base_url}/prelogin", json=payload)
-
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(f"{self.__base_url}/prelogin", json=payload) as response,
+        ):
             await self.__async_check_response(response)
 
     async def async_login_with_phone_number(
@@ -69,31 +71,33 @@ class CloudChargeAPIClient:
         if dev_token:
             payload["devToken"] = dev_token
 
-        async with aiohttp.ClientSession() as session:
-            response = await session.post(f"{self.__base_url}/login", json=payload)
-
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(f"{self.__base_url}/login", json=payload) as response,
+        ):
             await self.__async_check_response(response)
-
             data = await response.json()
 
             self.__headers = self.__build_auth_headers(
                 data.get("id"), data.get("token")
             )
+            self.__logged_in = True
 
     def forget_login(self):
         """Forget login details. Does not send logout request."""
-        self.__headers = {}
         self.__logged_in = False
+        self.__headers = {}
 
     async def async_logout(self):
         """Logout."""
         self.__check_logged_in()
 
-        async with aiohttp.ClientSession() as session:
-            response = await session.post(
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(
                 f"{self.__base_url}/logout", headers=self.__headers
-            )
-
+            ) as response,
+        ):
             await self.__async_check_response(response)
 
         self.forget_login()
@@ -135,41 +139,41 @@ class CloudChargeAPIClient:
         """Get chargers. Login required."""
         self.__check_logged_in()
 
-        async with aiohttp.ClientSession() as session:
-            response = await session.get(
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
                 f"{self.__base_url}/chargers/private", headers=self.__headers
-            )
-
+            ) as response,
+        ):
             await self.__async_check_response(response)
-
             return await response.json()
 
     async def async_get_operational_data(self, connector_id: str) -> OperationalData:
         """Get operational data. Login required."""
         self.__check_logged_in()
 
-        async with aiohttp.ClientSession() as session:
-            response = await session.get(
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
                 f"{self.__base_url}/connector/{connector_id}/operationaldata",
                 headers=self.__headers,
-            )
-
+            ) as response,
+        ):
             await self.__async_check_response(response)
-
             return await response.json()
 
     async def async_get_load_balancer(self, connector_id: str) -> LoadBalancer:
         """Get load balancer data. Login required."""
         self.__check_logged_in()
 
-        async with aiohttp.ClientSession() as session:
-            response = await session.get(
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
                 f"{self.__base_url}/connector/{connector_id}/loadBalancer",
                 headers=self.__headers,
-            )
-
+            ) as response,
+        ):
             await self.__async_check_response(response)
-
             return await response.json()
 
     async def async_get_network_configuration(
@@ -178,26 +182,27 @@ class CloudChargeAPIClient:
         """Get network configuration. Login required."""
         self.__check_logged_in()
 
-        async with aiohttp.ClientSession() as session:
-            response = await session.get(
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
                 f"{self.__base_url}/connector/{connector_id}/networkconfiguration",
                 headers=self.__headers,
-            )
-
+            ) as response,
+        ):
             await self.__async_check_response(response)
-
             return await response.json()
 
     async def async_start_live_consumption(self, connector_id: str):
         """Start live consumption. Login required."""
         self.__check_logged_in()
 
-        async with aiohttp.ClientSession() as session:
-            response = await session.post(
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(
                 f"{self.__base_url}/connector/{connector_id}/startliveconsumption",
                 headers=self.__headers,
-            )
-
+            ) as response,
+        ):
             await self.__async_check_response(response)
 
     def __build_auth_headers(self, user_id: str, token: str):
@@ -221,6 +226,3 @@ class CloudChargeAPIClient:
     ):
         """Import and validate cloud charge api credentials."""
         self.async_login_with_token(credentials["user_id"], credentials["token"])
-
-
-abc = CloudChargeAPIClient("")
