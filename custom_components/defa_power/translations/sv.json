@@ -1,6 +1,10 @@
 {
     "config": {
         "step": {
+            "reauth_confirm": {
+                "title": "Återautentisering krävs",
+                "description": "DEFA Power behöver återautentisera ditt konto"
+            },
             "choose_method": {
                 "title": "Välj inloggningsmetod",
                 "data": {
@@ -9,10 +13,11 @@
             },
             "send_code": {
                 "title": "Logga in med telefonnummer",
-                "description": "Ange ditt telefonnummer för att få en SMS-kod",
+                "description": "Ange ditt telefonnummer för att få en SMS-kod.\n\nDu kan bara vara inloggad på en enhet åt gången per app som använder CloudCharge API.\nVälj en app att simulera som du inte använder.",
                 "data": {
                     "phone_number": "Telefonnummer (med landskod)",
-                    "dev_token": "Utvecklartoken"
+                    "dev_token_options": "App att simulera",
+                    "custom_dev_token": "Anpassad utvecklartoken"
                 }
             },
             "sms_code": {
@@ -31,20 +36,40 @@
                 }
             }
         },
+        "abort": {
+            "existing_entry_not_found": "Befintlig post hittades inte.",
+            "reauth_successful": "Återautentisering lyckades",
+            "reconfigure_successful": "Omkonfiguration lyckades"
+        },
         "error": {
-            "phonenumber_request_error": "Inloggningsförfrågningsfel",
+            "phonenumber_request_error": "Inloggningsbegäran misslyckades",
             "phonenumber_invalid": "Ogiltigt telefonnummer",
             "phonenumber_invalid_dev_token": "Ogiltig utvecklartoken",
             "phonenumber_login_error": "Okänt fel inträffade",
-            "phonenumber_bad_request_error": "Felaktig förfrågan",
+            "phonenumber_bad_request_error": "Felaktig begäran",
             "phonenumber_invalid_login": "Ogiltig inloggning",
             "phonenumber_no_login_attempts_found": "Inga inloggningsförsök hittades. Försök att skicka koden igen.",
-            "manual_entry_request_error": "Förfrågningsfel",
+            "manual_entry_request_error": "Begäran misslyckades",
             "manual_entry_auth_error": "Ogiltigt användar-id eller token",
-            "unknown": "Ett okänt fel inträffade"
-        },
-        "abort": {
-            "already_configured": "Denna enhet är redan konfigurerad"
+            "unknown": "Okänt fel inträffade"
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Välj åtgärd",
+                "data": {
+                    "select_step": "Välj åtgärd"
+                }
+            },
+            "show_token": {
+                "title": "Nuvarande användar-id och token",
+                "description": "Användar-id och token kan inte redigeras här. Använd \"Konfigurera om\" för att ändra dem.",
+                "data": {
+                    "user_id": "Användar-id",
+                    "token": "Token"
+                }
+            }
         }
     },
     "selector": {
@@ -52,6 +77,18 @@
             "options": {
                 "phone_number": "Använd telefonnummer",
                 "manual": "Ange användar-id och token manuellt"
+            }
+        },
+        "dev_token_options": {
+            "options": {
+                "cloud_charge": "Cloud Charge",
+                "defa_power": "DEFA Power",
+                "custom": "Anpassad utvecklartoken (ange nedan)"
+            }
+        },
+        "select_step": {
+            "options": {
+                "show_current_token": "Visa nuvarande token"
             }
         }
     },
@@ -61,13 +98,13 @@
                 "name": "Valutakod"
             },
             "defa_power_meter_value": {
-                "name": "Mätarvärde"
+                "name": "Total energiförbrukning"
             },
             "defa_power_transaction_meter_value": {
-                "name": "Transaktionsmätarvärde"
+                "name": "Energiförbrukning (nuvarande laddning)"
             },
             "defa_power_power_consumption": {
-                "name": "Strömförbrukning"
+                "name": "Laddningseffekt"
             },
             "defa_power_charging_state": {
                 "name": "Laddningstillstånd"
@@ -76,10 +113,10 @@
                 "name": "Status"
             },
             "defa_power_power": {
-                "name": "Effekt"
+                "name": "Max laddningseffekt"
             },
             "defa_power_ampere": {
-                "name": "Ampere"
+                "name": "Strömgräns"
             },
             "defa_power_firmware_version": {
                 "name": "Firmware-version"

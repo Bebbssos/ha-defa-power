@@ -37,6 +37,8 @@ class RuntimeData(TypedDict):
     chargers: dict[str, RuntimeDataCharger]
     connectors: dict[str, RuntimeDataConnector]
 
+    client: CloudChargeAPIClient
+
 
 type DefaPowerConfigEntry = ConfigEntry[RuntimeData]
 
@@ -58,6 +60,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
         "chargers_coordinator": chargers_coordinator,
         "chargers": chargers,
         "connectors": connectors,
+        "client": client,
     }
 
     for connector_id, val in chargers_coordinator.data["chargers"].items():
@@ -79,6 +82,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
         c["operational_data_coordinator"] = operational_data_coordinator
 
     entry.runtime_data = data
+
+    entry.async_on_unload(entry.add_update_listener(update_listener))
 
     await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
     return True
@@ -124,3 +129,10 @@ async def async_migrate_entry(hass, config_entry: ConfigEntry):
     )
 
     return True
+
+
+async def update_listener(hass: HomeAssistant, entry: DefaPowerConfigEntry):
+    """Handle options update."""
+    _LOGGER.info("Handling options update")
+
+    entry.runtime_data["client"].import_credentials(entry.data["credentials"])

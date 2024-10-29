@@ -1,6 +1,10 @@
 {
     "config": {
         "step": {
+            "reauth_confirm": {
+                "title": "Re-authentication required",
+                "description": "DEFA Power needs to re-authenticate your account"
+            },
             "choose_method": {
                 "title": "Choose login method",
                 "data": {
@@ -9,10 +13,11 @@
             },
             "send_code": {
                 "title": "Login using phone number",
-                "description": "Enter your phone number to receive SMS code.",
+                "description": "Enter your phone number to receive SMS code.\n\nYou can only be logged in on one device at a time per app using the CloudCharge API.\nChoose an app to simulate that you don't use.",
                 "data": {
-                    "phone_number": "Phone number (With country code)",
-                    "dev_token": "Developer token"
+                    "phone_number": "Phone number (with country code)",
+                    "dev_token_options": "App to simulate",
+                    "custom_dev_token": "Custom developer token"
                 }
             },
             "sms_code": {
@@ -31,6 +36,11 @@
                 }
             }
         },
+        "abort": {
+            "existing_entry_not_found": "Existing entry not found.",
+            "reauth_successful": "Re-authentication successful",
+            "reconfigure_successful": "Re-configuration successful"
+        },
         "error": {
             "phonenumber_request_error": "Login request error",
             "phonenumber_invalid": "Invalid phone number",
@@ -42,9 +52,24 @@
             "manual_entry_request_error": "Request error",
             "manual_entry_auth_error": "Invalid user-id or token",
             "unknown": "Unknown error occurred"
-        },
-        "abort": {
-            "already_configured": "This device is already configured"
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Select action",
+                "data": {
+                    "select_step": "Select action"
+                }
+            },
+            "show_token": {
+                "title": "Current user-id and token",
+                "description": "User-id and token can not be edited here. Use \"Reconfigure\" to change them.",
+                "data": {
+                    "user_id": "User-id",
+                    "token": "Token"
+                }
+            }
         }
     },
     "selector": {
@@ -52,6 +77,18 @@
             "options": {
                 "phone_number": "Use phone number",
                 "manual": "Enter user-id and token manually"
+            }
+        },
+        "dev_token_options": {
+            "options": {
+                "cloud_charge": "Cloud Charge",
+                "defa_power": "DEFA Power",
+                "custom": "Custom developer token (enter below)"
+            }
+        },
+        "select_step": {
+            "options": {
+                "show_current_token": "Show current token"
             }
         }
     },
@@ -61,13 +98,13 @@
                 "name": "Currency code"
             },
             "defa_power_meter_value": {
-                "name": "Meter value"
+                "name": "Total energy consumption"
             },
             "defa_power_transaction_meter_value": {
-                "name": "Transaction meter value"
+                "name": "Energy consumption (current charging session)"
             },
             "defa_power_power_consumption": {
-                "name": "Power consumption"
+                "name": "Charging power"
             },
             "defa_power_charging_state": {
                 "name": "Charging state"
@@ -76,10 +113,10 @@
                 "name": "Status"
             },
             "defa_power_power": {
-                "name": "Power"
+                "name": "Max charging power"
             },
             "defa_power_ampere": {
-                "name": "Ampere"
+                "name": "Current limit"
             },
             "defa_power_firmware_version": {
                 "name": "Firmware version"
