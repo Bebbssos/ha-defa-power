@@ -95,7 +95,29 @@
     "entity": {
         "sensor": {
             "defa_power_currency_code": {
-                "name": "Currency code"
+                "name": "Currency code",
+                "state": {
+                    "CAD": "Canadian Dollar",
+                    "CHF": "Swiss Franc",
+                    "CZK": "Czech Koruna",
+                    "DKK": "Danish Krone",
+                    "EUR": "Euro",
+                    "GBP": "British Pound",
+                    "HUF": "Hungarian Forint",
+                    "HRK": "Croatian Kuna",
+                    "ILS": "Israeli Shekel",
+                    "ISK": "Icelandic Krona",
+                    "MTL": "Maltese Lira",
+                    "SKK": "Slovak Koruna",
+                    "NOK": "Norwegian Krone",
+                    "SIT": "Slovenian Tolar",
+                    "PLN": "Polish Zloty",
+                    "RON": "Romanian Leu",
+                    "ROL": "Romanian Leu (old)",
+                    "SEK": "Swedish Krona",
+                    "USD": "US Dollar",
+                    "XOF": "West African CFA Franc"
+                }
             },
             "defa_power_meter_value": {
                 "name": "Total energy consumption"
@@ -107,10 +129,34 @@
                 "name": "Charging power"
             },
             "defa_power_charging_state": {
-                "name": "Charging state"
+                "name": "Charging state",
+                "state": {
+                    "EVConnected": "EV Connected",
+                    "Charging": "Charging",
+                    "SuspendedEV": "Suspended by EV",
+                    "SuspendedEVSE": "Suspended by charger",
+                    "Idle": "Idle",
+                    "UNRECOGNIZED": "Unrecognized"
+                }
             },
             "defa_power_status": {
-                "name": "Status"
+                "name": "Status",
+                "state": {
+                    "AVAILABLE": "Available",
+                    "OCCUPIED": "Occupied",
+                    "PREPARING": "Preparing",
+                    "CHARGING": "Charging",
+                    "SUSPENDED_EV": "Suspended by EV",
+                    "SUSPENDED_EVSE": "Suspended by charger",
+                    "FINISHING": "Finishing",
+                    "FAULTED": "Faulted",
+                    "UNAVAILABLE": "Unavailable",
+                    "RESERVED": "Reserved",
+                    "RESTARTING": "Restarting",
+                    "FACILITY_FINISHING": "Facility finishing",
+                    "IDLE": "Idle",
+                    "EV_CONNECTED": "EV Connected"
+                }
             },
             "defa_power_power": {
                 "name": "Max charging power"

@@ -95,7 +95,29 @@
     "entity": {
         "sensor": {
             "defa_power_currency_code": {
-                "name": "Valutakod"
+                "name": "Valutakod",
+                "state": {
+                    "CAD": "Kanadensiska dollar",
+                    "CHF": "Schweiziska franc",
+                    "CZK": "Tjeckiska koruna",
+                    "DKK": "Danska kronor",
+                    "EUR": "Euro",
+                    "GBP": "Brittiska pund",
+                    "HUF": "Ungerska forint",
+                    "HRK": "Kroatiska kuna",
+                    "ILS": "Israeliska shekel",
+                    "ISK": "Isländska kronor",
+                    "MTL": "Maltesiska lira",
+                    "SKK": "Slovakiska koruna",
+                    "NOK": "Norska kronor",
+                    "SIT": "Slovenska tolar",
+                    "PLN": "Polska zloty",
+                    "RON": "Rumänska leu",
+                    "ROL": "Rumänska leu (gammal)",
+                    "SEK": "Svenska kronor",
+                    "USD": "Amerikanska dollar",
+                    "XOF": "Västafrikanska CFA-franc"
+                }
             },
             "defa_power_meter_value": {
                 "name": "Total energiförbrukning"
@@ -107,10 +129,34 @@
                 "name": "Laddningseffekt"
             },
             "defa_power_charging_state": {
-                "name": "Laddningstillstånd"
+                "name": "Laddningstillstånd",
+                "state": {
+                    "EVConnected": "Elbil ansluten",
+                    "Charging": "Laddar",
+                    "SuspendedEV": "Pausad av elbil",
+                    "SuspendedEVSE": "Pausad av laddstation",
+                    "Idle": "Inaktiv",
+                    "UNRECOGNIZED": "Oigenkänd"
+                }
             },
             "defa_power_status": {
-                "name": "Status"
+                "name": "Status",
+                "state": {
+                    "AVAILABLE": "Tillgänglig",
+                    "OCCUPIED": "Upptagen",
+                    "PREPARING": "Förbereder",
+                    "CHARGING": "Laddar",
+                    "SUSPENDED_EV": "Pausad av elbil",
+                    "SUSPENDED_EVSE": "Pausad av laddstation",
+                    "FINISHING": "Avslutar",
+                    "FAULTED": "Fel",
+                    "UNAVAILABLE": "Otillgänglig",
+                    "RESERVED": "Reserverad",
+                    "RESTARTING": "Startar om",
+                    "FACILITY_FINISHING": "Anläggning avslutar",
+                    "IDLE": "Inaktiv",
+                    "EV_CONNECTED": "Elbil ansluten"
+                }
             },
             "defa_power_power": {
                 "name": "Max laddningseffekt"

@@ -19,6 +19,53 @@ from .devices import ChargerDevice, ConnectorDevice
 
 _LOGGER = logging.getLogger(__name__)
 
+CURRENCY_CODE_VALUES = [
+    "CAD",
+    "CHF",
+    "CZK",
+    "DKK",
+    "EUR",
+    "GBP",
+    "HUF",
+    "HRK",
+    "ILS",
+    "ISK",
+    "MTL",
+    "SKK",
+    "NOK",
+    "SIT",
+    "PLN",
+    "RON",
+    "ROL",
+    "SEK",
+    "USD",
+    "XOF",
+]
+CHARGING_STATE_VALUES = [
+    "EVConnected",
+    "Charging",
+    "SuspendedEV",
+    "SuspendedEVSE",
+    "Idle",
+    "UNRECOGNIZED",
+]
+STATUS_VALUES = [
+    "AVAILABLE",
+    "OCCUPIED",
+    "PREPARING",
+    "CHARGING",
+    "SUSPENDED_EV",
+    "SUSPENDED_EVSE",
+    "FINISHING",
+    "FAULTED",
+    "UNAVAILABLE",
+    "RESERVED",
+    "RESTARTING",
+    "FACILITY_FINISHING",
+    "IDLE",
+    "EV_CONNECTED",
+]
+
 
 class Coordinator(Enum):
     """Coordinator type."""
@@ -34,6 +81,7 @@ class DefaPowerSensorDescription(SensorEntityDescription):
     field_name: str
     round_digits: int | None = None
     disabled_by_default: bool = False
+    options: list[str] | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -49,6 +97,8 @@ DEFA_POWER_CHARGER_SENSOR_TYPES: tuple[DefaPowerSensorDescription, ...] = (
         name="Currency code",
         icon="mdi:currency-usd",
         field_name="currencyCode",
+        options=CURRENCY_CODE_VALUES,
+        device_class=SensorDeviceClass.ENUM,
         disabled_by_default=True,
     ),
 )
@@ -92,14 +142,18 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: tuple[DefaPowerConnectorSensorDescription, ..
         name="Charging state",
         icon="mdi:battery-charging",
         field_name="chargingState",
+        options=CHARGING_STATE_VALUES,
         coordinator=Coordinator.OPERATIONAL_DATA,
+        device_class=SensorDeviceClass.ENUM,
     ),
     DefaPowerConnectorSensorDescription(
         key="status",
         name="Status",
         icon="mdi:ev-station",
         field_name="status",
+        options=STATUS_VALUES,
         coordinator=Coordinator.OPERATIONAL_DATA,
+        device_class=SensorDeviceClass.ENUM,
         disabled_by_default=True,
     ),
     DefaPowerConnectorSensorDescription(
@@ -237,6 +291,11 @@ class DefaChargerEntity(CoordinatorEntity, SensorEntity):
         """Return the unit of measurement."""
         return self._attr_native_unit_of_measurement
 
+    @property
+    def options(self) -> list[str] | None:
+        """Return the option of the sensor."""
+        return self.entity_description.options
+
 
 class DefaConnectorEntity(CoordinatorEntity, SensorEntity):
     """Base class for DEFA Power entities."""
@@ -318,3 +377,8 @@ class DefaConnectorEntity(CoordinatorEntity, SensorEntity):
     def unit_of_measurement(self) -> str:
         """Return the unit of measurement."""
         return self._attr_native_unit_of_measurement
+
+    @property
+    def options(self) -> list[str] | None:
+        """Return the option of the sensor."""
+        return self.entity_description.options
