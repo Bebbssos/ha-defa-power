@@ -101,16 +101,15 @@ class CloudChargeOperationalDataCoordinator(DataUpdateCoordinator):
             except CloudChargeAPIError as err:
                 raise UpdateFailed(f"Error communicating with API: {err}") from err
 
-            data["chargingState"] = data["ocpp"]["chargingState"]
-            data["status"] = data["ocpp"]["status"]
-            del data["ocpp"]
+            charging_state = data.get("ocpp", {}).get("chargingState")
 
-            # Update every 10 seconds while charging, otherwise every minute
-            if self.is_charging and data["chargingState"] != "Charging":
-                self.is_charging = False
-                self.update_interval = timedelta(seconds=60)
-            elif not self.is_charging and data["chargingState"] == "Charging":
-                self.is_charging = True
-                self.update_interval = timedelta(seconds=10)
-                await self.client.async_start_live_consumption(self.connector_id)
+            if charging_state:
+                # Update every 10 seconds while charging, otherwise every minute
+                if self.is_charging and charging_state != "Charging":
+                    self.is_charging = False
+                    self.update_interval = timedelta(seconds=60)
+                elif not self.is_charging and charging_state == "Charging":
+                    self.is_charging = True
+                    self.update_interval = timedelta(seconds=10)
+                    await self.client.async_start_live_consumption(self.connector_id)
             return data

@@ -6,6 +6,7 @@
   "dependencies": [],
   "documentation": "https://github.com/Bebbssos/ha-defa-power",
   "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/Bebbssos/ha-defa-power/issues",
   "requirements": [],
-  "version": "0.3.2"
+  "version": "0.3.3"
 }

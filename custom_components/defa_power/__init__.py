@@ -76,7 +76,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
         operational_data_coordinator = CloudChargeOperationalDataCoordinator(
             connector_id, hass, client
         )
-        await operational_data_coordinator.async_config_entry_first_refresh()
 
         c["device"] = ConnectorDevice(val, instance_id)
         c["operational_data_coordinator"] = operational_data_coordinator

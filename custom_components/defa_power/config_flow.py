@@ -10,7 +10,6 @@ import voluptuous as vol
 
 from homeassistant import config_entries, core
 from homeassistant.data_entry_flow import FlowResult
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.selector import (
     SelectSelector,
@@ -91,43 +90,6 @@ OPTIONS_CHOICE_SCHEMA = vol.Schema(
         )
     }
 )
-
-
-async def send_code(
-    phoneNumber: str, devToken: str | None, hass: core.HomeAssistant
-) -> None:
-    """Send the code to the user."""
-    session = async_get_clientsession(hass)
-
-    # Construct the payload dynamically
-    payload = {"phoneNr": phoneNumber}
-    if devToken:
-        payload["devToken"] = devToken
-
-    await session.post(
-        f"{API_BASE_URL}/prelogin",
-        json=payload,
-    )
-
-
-async def login(
-    phoneNumber: str, smsCode: str, devToken: str | None, hass: core.HomeAssistant
-) -> None:
-    """Login with the code."""
-    session = async_get_clientsession(hass)
-
-    payload = {"phoneNr": phoneNumber, "password": smsCode}
-    if devToken:
-        payload["devToken"] = devToken
-
-    request = await session.post(
-        f"{API_BASE_URL}/login",
-        json=payload,
-    )
-
-    response = await request.json()
-
-    return {"userId": response.get("id"), "token": response.get("token")}
 
 
 def get_instance_id():

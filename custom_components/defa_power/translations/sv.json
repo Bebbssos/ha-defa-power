@@ -97,26 +97,26 @@
             "defa_power_currency_code": {
                 "name": "Valutakod",
                 "state": {
-                    "CAD": "Kanadensiska dollar",
-                    "CHF": "Schweiziska franc",
-                    "CZK": "Tjeckiska koruna",
-                    "DKK": "Danska kronor",
-                    "EUR": "Euro",
-                    "GBP": "Brittiska pund",
-                    "HUF": "Ungerska forint",
-                    "HRK": "Kroatiska kuna",
-                    "ILS": "Israeliska shekel",
-                    "ISK": "Isländska kronor",
-                    "MTL": "Maltesiska lira",
-                    "SKK": "Slovakiska koruna",
-                    "NOK": "Norska kronor",
-                    "SIT": "Slovenska tolar",
-                    "PLN": "Polska zloty",
-                    "RON": "Rumänska leu",
-                    "ROL": "Rumänska leu (gammal)",
-                    "SEK": "Svenska kronor",
-                    "USD": "Amerikanska dollar",
-                    "XOF": "Västafrikanska CFA-franc"
+                    "cad": "Kanadensiska dollar",
+                    "chf": "Schweiziska franc",
+                    "czk": "Tjeckiska koruna",
+                    "dkk": "Danska kronor",
+                    "eur": "Euro",
+                    "gbp": "Brittiska pund",
+                    "huf": "Ungerska forint",
+                    "hrk": "Kroatiska kuna",
+                    "ils": "Israeliska shekel",
+                    "isk": "Isländska kronor",
+                    "mtl": "Maltesiska lira",
+                    "skk": "Slovakiska koruna",
+                    "nok": "Norska kronor",
+                    "sit": "Slovenska tolar",
+                    "pln": "Polska zloty",
+                    "ron": "Rumänska leu",
+                    "rol": "Rumänska leu (gammal)",
+                    "sek": "Svenska kronor",
+                    "usd": "Amerikanska dollar",
+                    "xof": "Västafrikanska CFA-franc"
                 }
             },
             "defa_power_meter_value": {
@@ -131,31 +131,31 @@
             "defa_power_charging_state": {
                 "name": "Laddningstillstånd",
                 "state": {
-                    "EVConnected": "Elbil ansluten",
-                    "Charging": "Laddar",
-                    "SuspendedEV": "Pausad av elbil",
-                    "SuspendedEVSE": "Pausad av laddstation",
-                    "Idle": "Inaktiv",
-                    "UNRECOGNIZED": "Oigenkänd"
+                    "ev_connected": "Elbil ansluten",
+                    "charging": "Laddar",
+                    "suspended_ev": "Pausad av elbil",
+                    "suspended_evse": "Pausad av laddstation",
+                    "idle": "Inaktiv",
+                    "unrecognized": "Oigenkänd"
                 }
             },
             "defa_power_status": {
                 "name": "Status",
                 "state": {
-                    "AVAILABLE": "Tillgänglig",
-                    "OCCUPIED": "Upptagen",
-                    "PREPARING": "Förbereder",
-                    "CHARGING": "Laddar",
-                    "SUSPENDED_EV": "Pausad av elbil",
-                    "SUSPENDED_EVSE": "Pausad av laddstation",
-                    "FINISHING": "Avslutar",
-                    "FAULTED": "Fel",
-                    "UNAVAILABLE": "Otillgänglig",
-                    "RESERVED": "Reserverad",
-                    "RESTARTING": "Startar om",
-                    "FACILITY_FINISHING": "Anläggning avslutar",
-                    "IDLE": "Inaktiv",
-                    "EV_CONNECTED": "Elbil ansluten"
+                    "available": "Tillgänglig",
+                    "occupied": "Upptagen",
+                    "preparing": "Förbereder",
+                    "charging": "Laddar",
+                    "suspended_ev": "Pausad av elbil",
+                    "suspended_evse": "Pausad av laddstation",
+                    "finishing": "Avslutar",
+                    "faulted": "Fel",
+                    "unavailable": "Otillgänglig",
+                    "reserved": "Reserverad",
+                    "restarting": "Startar om",
+                    "facility_finishing": "Anläggning avslutar",
+                    "idle": "Inaktiv",
+                    "ev_connected": "Elbil ansluten"
                 }
             },
             "defa_power_power": {

@@ -97,26 +97,26 @@
             "defa_power_currency_code": {
                 "name": "Currency code",
                 "state": {
-                    "CAD": "Canadian Dollar",
-                    "CHF": "Swiss Franc",
-                    "CZK": "Czech Koruna",
-                    "DKK": "Danish Krone",
-                    "EUR": "Euro",
-                    "GBP": "British Pound",
-                    "HUF": "Hungarian Forint",
-                    "HRK": "Croatian Kuna",
-                    "ILS": "Israeli Shekel",
-                    "ISK": "Icelandic Krona",
-                    "MTL": "Maltese Lira",
-                    "SKK": "Slovak Koruna",
-                    "NOK": "Norwegian Krone",
-                    "SIT": "Slovenian Tolar",
-                    "PLN": "Polish Zloty",
-                    "RON": "Romanian Leu",
-                    "ROL": "Romanian Leu (old)",
-                    "SEK": "Swedish Krona",
-                    "USD": "US Dollar",
-                    "XOF": "West African CFA Franc"
+                    "cad": "Canadian Dollar",
+                    "chf": "Swiss Franc",
+                    "czk": "Czech Koruna",
+                    "dkk": "Danish Krone",
+                    "eur": "Euro",
+                    "gbp": "British Pound",
+                    "huf": "Hungarian Forint",
+                    "hrk": "Croatian Kuna",
+                    "ils": "Israeli Shekel",
+                    "isk": "Icelandic Krona",
+                    "mtl": "Maltese Lira",
+                    "skk": "Slovak Koruna",
+                    "nok": "Norwegian Krone",
+                    "sit": "Slovenian Tolar",
+                    "pln": "Polish Zloty",
+                    "ron": "Romanian Leu",
+                    "rol": "Romanian Leu (old)",
+                    "sek": "Swedish Krona",
+                    "usd": "US Dollar",
+                    "xof": "West African CFA Franc"
                 }
             },
             "defa_power_meter_value": {
@@ -131,31 +131,31 @@
             "defa_power_charging_state": {
                 "name": "Charging state",
                 "state": {
-                    "EVConnected": "EV Connected",
-                    "Charging": "Charging",
-                    "SuspendedEV": "Suspended by EV",
-                    "SuspendedEVSE": "Suspended by charger",
-                    "Idle": "Idle",
-                    "UNRECOGNIZED": "Unrecognized"
+                    "ev_connected": "EV Connected",
+                    "charging": "Charging",
+                    "suspended_ev": "Suspended by EV",
+                    "suspended_evse": "Suspended by charger",
+                    "idle": "Idle",
+                    "unrecognized": "Unrecognized"
                 }
             },
             "defa_power_status": {
                 "name": "Status",
                 "state": {
-                    "AVAILABLE": "Available",
-                    "OCCUPIED": "Occupied",
-                    "PREPARING": "Preparing",
-                    "CHARGING": "Charging",
-                    "SUSPENDED_EV": "Suspended by EV",
-                    "SUSPENDED_EVSE": "Suspended by charger",
-                    "FINISHING": "Finishing",
-                    "FAULTED": "Faulted",
-                    "UNAVAILABLE": "Unavailable",
-                    "RESERVED": "Reserved",
-                    "RESTARTING": "Restarting",
-                    "FACILITY_FINISHING": "Facility finishing",
-                    "IDLE": "Idle",
-                    "EV_CONNECTED": "EV Connected"
+                    "available": "Available",
+                    "occupied": "Occupied",
+                    "preparing": "Preparing",
+                    "charging": "Charging",
+                    "suspended_ev": "Suspended by EV",
+                    "suspended_evse": "Suspended by charger",
+                    "finishing": "Finishing",
+                    "faulted": "Faulted",
+                    "unavailable": "Unavailable",
+                    "reserved": "Reserved",
+                    "restarting": "Restarting",
+                    "facility_finishing": "Facility finishing",
+                    "idle": "Idle",
+                    "ev_connected": "EV Connected"
                 }
             },
             "defa_power_power": {

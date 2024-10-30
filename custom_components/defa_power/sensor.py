@@ -1,8 +1,10 @@
 """DEFA Power sensor entities."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 import logging
+from typing import Any, Generic, TypeVar
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -15,55 +17,59 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DefaPowerConfigEntry
+from .cloudcharge_api.models import Charger, Connector, OperationalData
 from .devices import ChargerDevice, ConnectorDevice
 
 _LOGGER = logging.getLogger(__name__)
 
 CURRENCY_CODE_VALUES = [
-    "CAD",
-    "CHF",
-    "CZK",
-    "DKK",
-    "EUR",
-    "GBP",
-    "HUF",
-    "HRK",
-    "ILS",
-    "ISK",
-    "MTL",
-    "SKK",
-    "NOK",
-    "SIT",
-    "PLN",
-    "RON",
-    "ROL",
-    "SEK",
-    "USD",
-    "XOF",
+    "cad",
+    "chf",
+    "czk",
+    "dkk",
+    "eur",
+    "gbp",
+    "huf",
+    "hrk",
+    "ils",
+    "isk",
+    "mtl",
+    "skk",
+    "nok",
+    "sit",
+    "pln",
+    "ron",
+    "rol",
+    "sek",
+    "usd",
+    "xof",
 ]
-CHARGING_STATE_VALUES = [
-    "EVConnected",
-    "Charging",
-    "SuspendedEV",
-    "SuspendedEVSE",
-    "Idle",
-    "UNRECOGNIZED",
-]
+
+CHARGING_STATE_MAP = {
+    "EVConnected": "ev_connected",
+    "Charging": "charging",
+    "SuspendedEV": "suspended_ev",
+    "SuspendedEVSE": "suspended_evse",
+    "Idle": "idle",
+    "UNRECOGNIZED": "unrecognized",
+}
+CHARGING_STATE_VALUES = list(CHARGING_STATE_MAP.values())
+
 STATUS_VALUES = [
-    "AVAILABLE",
-    "OCCUPIED",
-    "PREPARING",
-    "CHARGING",
-    "SUSPENDED_EV",
-    "SUSPENDED_EVSE",
-    "FINISHING",
-    "FAULTED",
-    "UNAVAILABLE",
-    "RESERVED",
-    "RESTARTING",
-    "FACILITY_FINISHING",
-    "IDLE",
-    "EV_CONNECTED",
+    "available",
+    "occupied",
+    "preparing",
+    "charging",
+    "suspended_ev",
+    "suspended_evse",
+    "finishing",
+    "faulted",
+    "unavailable",
+    "reserved",
+    "restarting",
+    "facility_finishing",
+    "idle",
+    "ev_connected",
 ]
 
 
@@ -74,113 +80,135 @@ class Coordinator(Enum):
     OPERATIONAL_DATA = 2
 
 
+T = TypeVar("T")
+
+
+def to_lower_case_or_none(value: str | None) -> str | None:
+    """Convert a string to lowercase or return None."""
+    return value.lower() if value else None
+
+
 @dataclass(frozen=True, kw_only=True)
-class DefaPowerSensorDescription(SensorEntityDescription):
+class DefaPowerSensorDescription(Generic[T], SensorEntityDescription):
     """Class to describe an DEFA Power sensor entity."""
 
-    field_name: str
     round_digits: int | None = None
     disabled_by_default: bool = False
     options: list[str] | None = None
+    value_fn: Callable[[T], Any] | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
-class DefaPowerConnectorSensorDescription(DefaPowerSensorDescription):
+class DefaPowerConnectorSensorDescription(DefaPowerSensorDescription[T]):
     """Class to describe an DEFA Power Connector sensor entity."""
 
     coordinator: Coordinator = Coordinator.CHARGERS
 
 
 DEFA_POWER_CHARGER_SENSOR_TYPES: tuple[DefaPowerSensorDescription, ...] = (
-    DefaPowerSensorDescription(
+    DefaPowerSensorDescription[Charger](
         key="currency_code",
         name="Currency code",
         icon="mdi:currency-usd",
-        field_name="currencyCode",
         options=CURRENCY_CODE_VALUES,
         device_class=SensorDeviceClass.ENUM,
         disabled_by_default=True,
+        value_fn=lambda data: to_lower_case_or_none(data.get("currencyCode")),
     ),
 )
 
+
+def get_charging_state(data):
+    """Get the charging state from the data."""
+    ocpp = data.get("ocpp")
+    if ocpp is None:
+        return None
+
+    state = ocpp.get("chargingState")
+    return CHARGING_STATE_MAP.get(state, state.lower() if state else None)
+
+
 DEFA_POWER_CONNECTOR_SENSOR_TYPES: tuple[DefaPowerConnectorSensorDescription, ...] = (
-    DefaPowerConnectorSensorDescription(
+    DefaPowerConnectorSensorDescription[OperationalData](
         key="meter_value",
         name="Meter value",
         icon="mdi:counter",
-        field_name="meterValue",
         coordinator=Coordinator.OPERATIONAL_DATA,
         round_digits=3,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
         device_class=SensorDeviceClass.ENERGY,
+        value_fn=lambda data: data.get("meterValue"),
     ),
-    DefaPowerConnectorSensorDescription(
+    DefaPowerConnectorSensorDescription[OperationalData](
         key="transaction_meter_value",
         name="Transaction meter value",
         icon="mdi:counter",
-        field_name="transactionMeterValue",
         coordinator=Coordinator.OPERATIONAL_DATA,
         round_digits=3,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
         device_class=SensorDeviceClass.ENERGY,
+        value_fn=lambda data: data.get("transactionMeterValue"),
     ),
-    DefaPowerConnectorSensorDescription(
+    DefaPowerConnectorSensorDescription[OperationalData](
         key="power_consumption",
         name="Power consumption",
         icon="mdi:lightning-bolt",
-        field_name="powerConsumption",
         coordinator=Coordinator.OPERATIONAL_DATA,
         round_digits=3,
         native_unit_of_measurement=UnitOfPower.KILO_WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER,
+        value_fn=lambda data: data.get("powerConsumption"),
     ),
-    DefaPowerConnectorSensorDescription(
+    DefaPowerConnectorSensorDescription[OperationalData](
         key="charging_state",
         name="Charging state",
         icon="mdi:battery-charging",
-        field_name="chargingState",
         options=CHARGING_STATE_VALUES,
         coordinator=Coordinator.OPERATIONAL_DATA,
         device_class=SensorDeviceClass.ENUM,
+        value_fn=get_charging_state,
     ),
-    DefaPowerConnectorSensorDescription(
+    DefaPowerConnectorSensorDescription[OperationalData](
         key="status",
         name="Status",
         icon="mdi:ev-station",
-        field_name="status",
         options=STATUS_VALUES,
         coordinator=Coordinator.OPERATIONAL_DATA,
         device_class=SensorDeviceClass.ENUM,
         disabled_by_default=True,
+        value_fn=lambda data: to_lower_case_or_none(data.get("ocpp", {}).get("status")),
     ),
-    DefaPowerConnectorSensorDescription(
+    DefaPowerConnectorSensorDescription[Connector](
         key="power",
         name="Power",
         icon="mdi:lightning-bolt",
-        field_name="power",
         round_digits=2,
         native_unit_of_measurement=UnitOfPower.KILO_WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER,
+        disabled_by_default=True,
+        value_fn=lambda data: data.get("power"),
     ),
-    DefaPowerConnectorSensorDescription(
+    DefaPowerConnectorSensorDescription[Connector](
         key="ampere",
         name="Ampere",
         icon="mdi:current-ac",
-        field_name="ampere",
         round_digits=0,
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.CURRENT,
+        disabled_by_default=True,
+        value_fn=lambda data: data.get("ampere"),
     ),
-    DefaPowerConnectorSensorDescription(
+    DefaPowerConnectorSensorDescription[Connector](
         key="firmware_version",
         name="Firmware version",
         icon="mdi:information-outline",
-        field_name="firmwareVersion",
+        disabled_by_default=True,
+        value_fn=lambda data: data.get("firmwareVersion"),
     ),
 )
 
@@ -266,9 +294,12 @@ class DefaChargerEntity(CoordinatorEntity, SensorEntity):
 
     def _set_state(self):
         """Update the state from coordinator. Return True if the state has changed."""
-        new_state = self.coordinator.data["chargers"][self.id][
-            self.entity_description.field_name
-        ]
+        if self.coordinator.data is None:
+            return False
+
+        new_state = self.entity_description.value_fn(
+            self.coordinator.data["chargers"][self.id]
+        )
 
         if new_state != self.state_val:
             self.state_val = new_state
@@ -317,7 +348,7 @@ class DefaConnectorEntity(CoordinatorEntity, SensorEntity):
             context = id
         else:
             self.id_lookup_required = False
-            context = description.field_name
+            context = description.key
 
         super().__init__(coordinator, context)
         self.coordinator = coordinator
@@ -350,12 +381,15 @@ class DefaConnectorEntity(CoordinatorEntity, SensorEntity):
 
     def _set_state(self):
         """Update the state from coordinator. Return True if the state has changed."""
+        if self.coordinator.data is None:
+            return False
+
         if self.id_lookup_required:
-            new_state = self.coordinator.data["connectors"][self.id][
-                self.entity_description.field_name
-            ]
+            new_state = self.entity_description.value_fn(
+                self.coordinator.data["connectors"][self.id]
+            )
         else:
-            new_state = self.coordinator.data[self.entity_description.field_name]
+            new_state = self.entity_description.value_fn(self.coordinator.data)
 
         if new_state != self.state_val:
             self.state_val = new_state
