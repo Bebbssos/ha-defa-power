@@ -108,7 +108,6 @@ class DefaPowerConnectorSensorDescription(DefaPowerSensorDescription[T]):
 DEFA_POWER_CHARGER_SENSOR_TYPES: tuple[DefaPowerSensorDescription, ...] = (
     DefaPowerSensorDescription[Charger](
         key="currency_code",
-        name="Currency code",
         icon="mdi:currency-usd",
         options=CURRENCY_CODE_VALUES,
         device_class=SensorDeviceClass.ENUM,
@@ -131,7 +130,6 @@ def get_charging_state(data):
 DEFA_POWER_CONNECTOR_SENSOR_TYPES: tuple[DefaPowerConnectorSensorDescription, ...] = (
     DefaPowerConnectorSensorDescription[OperationalData](
         key="meter_value",
-        name="Meter value",
         icon="mdi:counter",
         coordinator=Coordinator.OPERATIONAL_DATA,
         round_digits=3,
@@ -142,7 +140,6 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: tuple[DefaPowerConnectorSensorDescription, ..
     ),
     DefaPowerConnectorSensorDescription[OperationalData](
         key="transaction_meter_value",
-        name="Transaction meter value",
         icon="mdi:counter",
         coordinator=Coordinator.OPERATIONAL_DATA,
         round_digits=3,
@@ -153,7 +150,6 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: tuple[DefaPowerConnectorSensorDescription, ..
     ),
     DefaPowerConnectorSensorDescription[OperationalData](
         key="power_consumption",
-        name="Power consumption",
         icon="mdi:lightning-bolt",
         coordinator=Coordinator.OPERATIONAL_DATA,
         round_digits=3,
@@ -164,7 +160,6 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: tuple[DefaPowerConnectorSensorDescription, ..
     ),
     DefaPowerConnectorSensorDescription[OperationalData](
         key="charging_state",
-        name="Charging state",
         icon="mdi:battery-charging",
         options=CHARGING_STATE_VALUES,
         coordinator=Coordinator.OPERATIONAL_DATA,
@@ -173,7 +168,6 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: tuple[DefaPowerConnectorSensorDescription, ..
     ),
     DefaPowerConnectorSensorDescription[OperationalData](
         key="status",
-        name="Status",
         icon="mdi:ev-station",
         options=STATUS_VALUES,
         coordinator=Coordinator.OPERATIONAL_DATA,
@@ -183,31 +177,25 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: tuple[DefaPowerConnectorSensorDescription, ..
     ),
     DefaPowerConnectorSensorDescription[Connector](
         key="power",
-        name="Power",
         icon="mdi:lightning-bolt",
         round_digits=2,
         native_unit_of_measurement=UnitOfPower.KILO_WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER,
-        disabled_by_default=True,
         value_fn=lambda data: data.get("power"),
     ),
     DefaPowerConnectorSensorDescription[Connector](
         key="ampere",
-        name="Ampere",
         icon="mdi:current-ac",
         round_digits=0,
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.CURRENT,
-        disabled_by_default=True,
         value_fn=lambda data: data.get("ampere"),
     ),
     DefaPowerConnectorSensorDescription[Connector](
         key="firmware_version",
-        name="Firmware version",
         icon="mdi:information-outline",
-        disabled_by_default=True,
         value_fn=lambda data: data.get("firmwareVersion"),
     ),
 )
@@ -266,7 +254,6 @@ class DefaChargerEntity(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator, id)
         self.coordinator = coordinator
         self.entity_description = description
-        # self._attr_name = f"{coordinator.name} {description.name}"
         self._attr_unique_id = f"{instance_id}_{id}_{description.key}"
         self._attr_translation_key = f"defa_power_{description.key}"
         if description.device_class is not None:
@@ -353,7 +340,6 @@ class DefaConnectorEntity(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator, context)
         self.coordinator = coordinator
         self.entity_description = description
-        # self._attr_name = f"{coordinator.name} {description.name}"
         self._attr_unique_id = f"{instance_id}_{id}_{description.key}"
         self._attr_translation_key = f"defa_power_{description.key}"
         if description.device_class is not None:
