@@ -17,8 +17,8 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DefaPowerConfigEntry
-from .cloudcharge_api.models import Charger, Connector, OperationalData
-from .devices import ChargerDevice, ConnectorDevice
+from .cloudcharge_api.models import ChargePoint, Connector, OperationalData
+from .devices import ChargePointDevice, ConnectorDevice
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -105,8 +105,8 @@ class DefaPowerConnectorSensorDescription(DefaPowerSensorDescription[T]):
     coordinator: Coordinator = Coordinator.CHARGERS
 
 
-DEFA_POWER_CHARGER_SENSOR_TYPES: tuple[DefaPowerSensorDescription, ...] = (
-    DefaPowerSensorDescription[Charger](
+DEFA_POWER_CHARGEPOINT_SENSOR_TYPES: tuple[DefaPowerSensorDescription, ...] = (
+    DefaPowerSensorDescription[ChargePoint](
         key="currency_code",
         icon="mdi:currency-usd",
         options=CURRENCY_CODE_VALUES,
@@ -209,16 +209,16 @@ async def async_setup_entry(
     instance_id = entry.data.get("instance_id") or "default"
     entities: list[SensorEntity] = []
 
-    for connector_id, val in entry.runtime_data["chargers"].items():
+    for connector_id, val in entry.runtime_data["chargePoints"].items():
         entities.extend(
-            DefaChargerEntity(
+            DefaChargePointEntity(
                 connector_id,
                 entry.runtime_data["chargers_coordinator"],
                 sensorType,
                 val["device"],
                 instance_id,
             )
-            for sensorType in DEFA_POWER_CHARGER_SENSOR_TYPES
+            for sensorType in DEFA_POWER_CHARGEPOINT_SENSOR_TYPES
         )
 
     for connector_id, val in entry.runtime_data["connectors"].items():
@@ -229,14 +229,19 @@ async def async_setup_entry(
 
             entities.append(
                 DefaConnectorEntity(
-                    connector_id, coordinator, sensor_type, val["device"], instance_id
+                    connector_id,
+                    val["alias"],
+                    coordinator,
+                    sensor_type,
+                    val["device"],
+                    instance_id,
                 )
             )
 
     async_add_entities(entities, update_before_add=True)
 
 
-class DefaChargerEntity(CoordinatorEntity, SensorEntity):
+class DefaChargePointEntity(CoordinatorEntity, SensorEntity):
     """Base class for DEFA Power entities."""
 
     state_val = None
@@ -247,7 +252,7 @@ class DefaChargerEntity(CoordinatorEntity, SensorEntity):
         id: str,
         coordinator,
         description: DefaPowerSensorDescription,
-        device: ChargerDevice,
+        device: ChargePointDevice,
         instance_id: str,
     ) -> None:
         """Initialize the entity."""
@@ -285,7 +290,7 @@ class DefaChargerEntity(CoordinatorEntity, SensorEntity):
             return False
 
         new_state = self.entity_description.value_fn(
-            self.coordinator.data["chargers"][self.id]
+            self.coordinator.data["chargePoints"][self.id]
         )
 
         if new_state != self.state_val:
@@ -324,6 +329,7 @@ class DefaConnectorEntity(CoordinatorEntity, SensorEntity):
     def __init__(
         self,
         id: str,
+        alias: str,
         coordinator,
         description: DefaPowerConnectorSensorDescription,
         device: ConnectorDevice,
@@ -332,7 +338,7 @@ class DefaConnectorEntity(CoordinatorEntity, SensorEntity):
         """Initialize the entity."""
         if description.coordinator == Coordinator.CHARGERS:
             self.id_lookup_required = True
-            context = id
+            context = alias
         else:
             self.id_lookup_required = False
             context = description.key
@@ -357,6 +363,7 @@ class DefaConnectorEntity(CoordinatorEntity, SensorEntity):
             self.attr_suggested_display_precision = description.round_digits
 
         self.id = id
+        self.alias = alias
         self._attr_device_info = device.get_device_info()
         self._set_state()
 
@@ -372,7 +379,7 @@ class DefaConnectorEntity(CoordinatorEntity, SensorEntity):
 
         if self.id_lookup_required:
             new_state = self.entity_description.value_fn(
-                self.coordinator.data["connectors"][self.id]
+                self.coordinator.data["connectors"][self.alias]
             )
         else:
             new_state = self.entity_description.value_fn(self.coordinator.data)

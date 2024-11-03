@@ -167,6 +167,14 @@
             "defa_power_firmware_version": {
                 "name": "Firmware version"
             }
+        },
+        "button": {
+            "defa_power_start_charging": {
+                "name": "Start charging"
+            },
+            "defa_power_stop_charging": {
+                "name": "Stop charging"
+            }
         }
     }
 }

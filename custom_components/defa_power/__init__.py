@@ -12,21 +12,22 @@ from .coordinator import (
     CloudChargeChargersCoordinator,
     CloudChargeOperationalDataCoordinator,
 )
-from .devices import ChargerDevice, ConnectorDevice
+from .devices import ChargePointDevice, ConnectorDevice
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class RuntimeDataCharger(TypedDict):
+class RuntimeDataChargePoint(TypedDict):
     """Runtime data for a charger."""
 
-    device: ChargerDevice
+    device: ChargePointDevice
 
 
 class RuntimeDataConnector(TypedDict):
     """Runtime data for a connector."""
 
     device: ConnectorDevice
+    alias: str
     operational_data_coordinator: CloudChargeOperationalDataCoordinator
 
 
@@ -34,7 +35,7 @@ class RuntimeData(TypedDict):
     """Runtime data for DEFA Power."""
 
     chargers_coordinator: CloudChargeChargersCoordinator
-    chargers: dict[str, RuntimeDataCharger]
+    chargerPoints: dict[str, RuntimeDataChargePoint]
     connectors: dict[str, RuntimeDataConnector]
 
     client: CloudChargeAPIClient
@@ -54,22 +55,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
     await chargers_coordinator.async_config_entry_first_refresh()
 
     instance_id = entry.data.get("instance_id") or "default"
-    chargers = {}
+    chargePoints = {}
     connectors = {}
     data: RuntimeData = {
         "chargers_coordinator": chargers_coordinator,
-        "chargers": chargers,
+        "chargePoints": chargePoints,
         "connectors": connectors,
         "client": client,
     }
 
-    for connector_id, val in chargers_coordinator.data["chargers"].items():
-        c: RuntimeDataCharger = {}
-        chargers[connector_id] = c
+    for connector_id, val in chargers_coordinator.data["chargePoints"].items():
+        c: RuntimeDataChargePoint = {}
+        chargePoints[connector_id] = c
 
-        c["device"] = ChargerDevice(val, instance_id)
+        c["device"] = ChargePointDevice(val, instance_id)
 
-    for connector_id, val in chargers_coordinator.data["connectors"].items():
+    for alias, val in chargers_coordinator.data["connectors"].items():
+        connector_id = val["id"]
+
         c: RuntimeDataConnector = {}
         connectors[connector_id] = c
 
@@ -80,21 +83,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
             operational_data_coordinator.async_config_entry_first_refresh()
         )  # TODO: Fix first entiry not getting value on first fetch without prefetching
 
-        c["device"] = ConnectorDevice(val, instance_id)
+        c["device"] = ConnectorDevice(val, instance_id, alias)
+        c["alias"] = alias
         c["operational_data_coordinator"] = operational_data_coordinator
 
     entry.runtime_data = data
 
     entry.async_on_unload(entry.add_update_listener(update_listener))
 
-    await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
+    await hass.config_entries.async_forward_entry_setups(entry, ["sensor", "button"])
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry) -> bool:
     """Unload a config entry."""
     _LOGGER.info("Unloading DEFA Power config entry")
-    await hass.config_entries.async_forward_entry_unload(entry, "sensor")
+    await hass.config_entries.async_forward_entry_unload(entry, "sensor", "button")
     return True
 
 
