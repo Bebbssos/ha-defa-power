@@ -1,0 +1,27 @@
+name: Upload zip
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build:
+    name: Upload integration files as zip
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create ZIP file
+        run: |
+          cd custom_components/defa_power  # Change to the defa_power directory
+          zip -r defa_power.zip .  # Zip the contents of the defa_power folder
+
+      - name: Upload ZIP file to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: custom_components/defa_power/defa_power.zip  # Path to the created ZIP file
+          asset_name: defa_power.zip    # Name of the asset
+          tag: ${{ github.ref }}   # Use the current tag for the release
