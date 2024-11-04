@@ -1,5 +1,5 @@
 {
+  "filename": "defa_power.zip",
   "name": "DEFA Power",
-  "render_readme": true,
-  "iot_class": "cloud_polling"
+  "zip_release": true
 }
