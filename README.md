@@ -72,7 +72,7 @@ After setting up the integration, you can retrieve your user-id and token by fol
 ### To-Do List
 
 - [ ] **Additional Entities**: Add more entities from the data provided by the CloudCharge API.
-- [ ] **Start/Stop Charging Functionality**: Enable the ability to start or stop the charging process directly from Home Assistant.
+- [x] **Start/Stop Charging Functionality**: Enable the ability to start or stop the charging process directly from Home Assistant.
 - [ ] **Eco Mode Configuration**: Add functionality to set eco mode options.
 
 ### Disclaimer

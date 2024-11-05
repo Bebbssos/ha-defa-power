@@ -56,7 +56,7 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: tuple[DefaPowerChargeStartStopButtonDescripti
         key="stop_charging",
         icon="mdi:flash-off",
         on_press=stop_charging,
-        available_on_states=["Charging"],
+        available_on_states=["Charging", "SuspendedEV"],
         refresh_coordinator_wait=1, # Stop charging is faster, waiting 1 second should be enough
     ),
 )
@@ -70,10 +70,11 @@ async def async_setup_entry(
     instance_id = entry.data.get("instance_id") or "default"
     entities: list[ButtonEntity] = []
 
-    for val in entry.runtime_data["connectors"].values():
+    for connector_id, val in entry.runtime_data["connectors"].items():
         operational_data_coordinator = val["operational_data_coordinator"]
         entities.extend(
             ChargeStartStopButton(
+                connector_id,
                 val["alias"],
                 sensorType,
                 val["device"],
@@ -83,6 +84,7 @@ async def async_setup_entry(
             )
             for sensorType in DEFA_POWER_CONNECTOR_SENSOR_TYPES
         )
+        entities.append(ChargerRestartButton(connector_id, val["device"], entry.runtime_data["client"], instance_id))
 
     async_add_entities(entities, update_before_add=True)
 
@@ -96,6 +98,7 @@ class ChargeStartStopButton(CoordinatorEntity, ButtonEntity):
 
     def __init__(
         self,
+        connector_id: str,
         connector_alias: str,
         description: DefaPowerChargeStartStopButtonDescription,
         device: ConnectorDevice,
@@ -110,7 +113,7 @@ class ChargeStartStopButton(CoordinatorEntity, ButtonEntity):
         self.entity_description = description
         self.coordinator = coordinator
 
-        self._attr_unique_id = f"{instance_id}_{id}_{description.key}"
+        self._attr_unique_id = f"{instance_id}_{connector_id}_{description.key}"
         self._attr_translation_key = f"defa_power_{description.key}"
         self._attr_icon = description.icon
 
@@ -138,7 +141,7 @@ class ChargeStartStopButton(CoordinatorEntity, ButtonEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        is_available = self.coordinator.data is not None and self.coordinator.data["ocpp"]["chargingState"] in self.entity_description.available_on_states
+        is_available = self.coordinator.data is not None and self.coordinator.data.get("ocpp", {}).get("chargingState") in self.entity_description.available_on_states
         if is_available != self.is_available:
             self.is_available = is_available
             self.async_write_ha_state()
@@ -147,3 +150,29 @@ class ChargeStartStopButton(CoordinatorEntity, ButtonEntity):
     def available(self):
         """Return True if entity is available."""
         return self.is_available and not self.is_processing
+
+class ChargerRestartButton(ButtonEntity):
+    """Button entity for restarting charger."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        connector_id: str,
+        device: ConnectorDevice,
+        client: CloudChargeAPIClient,
+        instance_id: str,
+    ) -> None:
+        """Initialize the button entity."""
+        self.client = client
+        self.connector_id = connector_id
+
+        self._attr_unique_id = f"{instance_id}_{connector_id}_restart"
+        self._attr_translation_key = "defa_power_restart"
+        self._attr_icon = "mdi:restart"
+
+        self._attr_device_info = device.get_device_info()
+
+    async def async_press(self) -> None:
+        """Handle the button press."""
+        await self.client.async_restart_charger(self.connector_id)

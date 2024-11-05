@@ -277,6 +277,19 @@ class CloudChargeAPIClient:
         ):
             await self.__async_check_response(response)
 
+    async def async_restart_charger(self, connector_id: str):
+        """Restart charger. Login required."""
+        self.__check_logged_in()
+
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(
+                f"{self.__base_url}/connector/{connector_id}/reset?type=Hard",
+                headers=self.__headers,
+            ) as response,
+        ):
+            await self.__async_check_response(response)
+
     def __build_auth_headers(self, user_id: str, token: str):
         """Build headers."""
         return {"x-authorization": token, "x-user": user_id}
