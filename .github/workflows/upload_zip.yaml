@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     name: Upload integration files as zip
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
 
     steps:
@@ -25,3 +27,4 @@ jobs:
           file: custom_components/defa_power/defa_power.zip  # Path to the created ZIP file
           asset_name: defa_power.zip    # Name of the asset
           tag: ${{ github.ref }}   # Use the current tag for the release
+          draft: True
