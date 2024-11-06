@@ -76,8 +76,8 @@ class Connector(TypedDict, total=False):
     vendor: str
 
 
-class Charger(TypedDict, total=False):
-    """Charger."""
+class ChargePoint(TypedDict, total=False):
+    """ChargePoint."""
 
     access: str
     aliasMap: dict[str, Connector]
@@ -100,11 +100,11 @@ class Charger(TypedDict, total=False):
     zipcode: str
 
 
-class PrivateCharger(TypedDict, total=False):
-    """Private charger."""
+class PrivateChargePoint(TypedDict, total=False):
+    """Private chargepoint."""
 
     access: str
-    data: Charger
+    data: ChargePoint
     type: str
     validFrom: str | None
     validTo: str | None

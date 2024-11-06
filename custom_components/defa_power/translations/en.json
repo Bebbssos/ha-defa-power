@@ -1,172 +1,183 @@
 {
-    "config": {
-        "step": {
-            "reauth_confirm": {
-                "title": "Re-authentication required",
-                "description": "DEFA Power needs to re-authenticate your account"
-            },
-            "choose_method": {
-                "title": "Choose login method",
-                "data": {
-                    "method": "Login method"
-                }
-            },
-            "send_code": {
-                "title": "Login using phone number",
-                "description": "Enter your phone number to receive SMS code.\n\nYou can only be logged in on one device at a time per app using the CloudCharge API.\nChoose an app to simulate that you don't use.",
-                "data": {
-                    "phone_number": "Phone number (with country code)",
-                    "dev_token_options": "App to simulate",
-                    "custom_dev_token": "Custom developer token"
-                }
-            },
-            "sms_code": {
-                "title": "Enter SMS code",
-                "description": "Enter the SMS code you received",
-                "data": {
-                    "sms_code": "SMS code"
-                }
-            },
-            "manual_entry": {
-                "title": "Manual login",
-                "description": "Enter user-id and token",
-                "data": {
-                    "user_id": "User-id",
-                    "token": "Token"
-                }
-            }
-        },
-        "abort": {
-            "existing_entry_not_found": "Existing entry not found.",
-            "reauth_successful": "Re-authentication successful",
-            "reconfigure_successful": "Re-configuration successful"
-        },
-        "error": {
-            "phonenumber_request_error": "Login request error",
-            "phonenumber_invalid": "Invalid phone number",
-            "phonenumber_invalid_dev_token": "Invalid developer token",
-            "phonenumber_login_error": "Unknown error occurred",
-            "phonenumber_bad_request_error": "Bad request error",
-            "phonenumber_invalid_login": "Invalid login",
-            "phonenumber_no_login_attempts_found": "No login attempts found. Please try sending code again.",
-            "manual_entry_request_error": "Request error",
-            "manual_entry_auth_error": "Invalid user-id or token",
-            "unknown": "Unknown error occurred"
+  "config": {
+    "step": {
+      "reauth_confirm": {
+        "title": "Re-authentication required",
+        "description": "DEFA Power needs to re-authenticate your account"
+      },
+      "choose_method": {
+        "title": "Choose login method",
+        "data": {
+          "method": "Login method"
         }
+      },
+      "send_code": {
+        "title": "Login using phone number",
+        "description": "Enter your phone number to receive SMS code.\n\nYou can only be logged in on one device at a time per app using the CloudCharge API.\nChoose an app to simulate that you don't use.",
+        "data": {
+          "phone_number": "Phone number (with country code)",
+          "dev_token_options": "App to simulate",
+          "custom_dev_token": "Custom developer token"
+        }
+      },
+      "sms_code": {
+        "title": "Enter SMS code",
+        "description": "Enter the SMS code you received",
+        "data": {
+          "sms_code": "SMS code"
+        }
+      },
+      "manual_entry": {
+        "title": "Manual login",
+        "description": "Enter user-id and token",
+        "data": {
+          "user_id": "User-id",
+          "token": "Token"
+        }
+      }
     },
-    "options": {
-        "step": {
-            "init": {
-                "title": "Select action",
-                "data": {
-                    "select_step": "Select action"
-                }
-            },
-            "show_token": {
-                "title": "Current user-id and token",
-                "description": "User-id and token can not be edited here. Use \"Reconfigure\" to change them.",
-                "data": {
-                    "user_id": "User-id",
-                    "token": "Token"
-                }
-            }
-        }
+    "abort": {
+      "existing_entry_not_found": "Existing entry not found.",
+      "reauth_successful": "Re-authentication successful",
+      "reconfigure_successful": "Re-configuration successful"
     },
-    "selector": {
-        "login_method": {
-            "options": {
-                "phone_number": "Use phone number",
-                "manual": "Enter user-id and token manually"
-            }
-        },
-        "dev_token_options": {
-            "options": {
-                "cloud_charge": "Cloud Charge",
-                "defa_power": "DEFA Power",
-                "custom": "Custom developer token (enter below)"
-            }
-        },
-        "select_step": {
-            "options": {
-                "show_current_token": "Show current token"
-            }
-        }
-    },
-    "entity": {
-        "sensor": {
-            "defa_power_currency_code": {
-                "name": "Currency code",
-                "state": {
-                    "cad": "Canadian Dollar",
-                    "chf": "Swiss Franc",
-                    "czk": "Czech Koruna",
-                    "dkk": "Danish Krone",
-                    "eur": "Euro",
-                    "gbp": "British Pound",
-                    "huf": "Hungarian Forint",
-                    "hrk": "Croatian Kuna",
-                    "ils": "Israeli Shekel",
-                    "isk": "Icelandic Krona",
-                    "mtl": "Maltese Lira",
-                    "skk": "Slovak Koruna",
-                    "nok": "Norwegian Krone",
-                    "sit": "Slovenian Tolar",
-                    "pln": "Polish Zloty",
-                    "ron": "Romanian Leu",
-                    "rol": "Romanian Leu (old)",
-                    "sek": "Swedish Krona",
-                    "usd": "US Dollar",
-                    "xof": "West African CFA Franc"
-                }
-            },
-            "defa_power_meter_value": {
-                "name": "Total energy consumption"
-            },
-            "defa_power_transaction_meter_value": {
-                "name": "Energy consumption (current charging session)"
-            },
-            "defa_power_power_consumption": {
-                "name": "Charging power"
-            },
-            "defa_power_charging_state": {
-                "name": "Charging state",
-                "state": {
-                    "ev_connected": "EV Connected",
-                    "charging": "Charging",
-                    "suspended_ev": "Suspended by EV",
-                    "suspended_evse": "Suspended by charger",
-                    "idle": "Idle",
-                    "unrecognized": "Unrecognized"
-                }
-            },
-            "defa_power_status": {
-                "name": "Status",
-                "state": {
-                    "available": "Available",
-                    "occupied": "Occupied",
-                    "preparing": "Preparing",
-                    "charging": "Charging",
-                    "suspended_ev": "Suspended by EV",
-                    "suspended_evse": "Suspended by charger",
-                    "finishing": "Finishing",
-                    "faulted": "Faulted",
-                    "unavailable": "Unavailable",
-                    "reserved": "Reserved",
-                    "restarting": "Restarting",
-                    "facility_finishing": "Facility finishing",
-                    "idle": "Idle",
-                    "ev_connected": "EV Connected"
-                }
-            },
-            "defa_power_power": {
-                "name": "Max charging power"
-            },
-            "defa_power_ampere": {
-                "name": "Current limit"
-            },
-            "defa_power_firmware_version": {
-                "name": "Firmware version"
-            }
-        }
+    "error": {
+      "phonenumber_request_error": "Login request error",
+      "phonenumber_invalid": "Invalid phone number",
+      "phonenumber_invalid_dev_token": "Invalid developer token",
+      "phonenumber_login_error": "Unknown error occurred",
+      "phonenumber_bad_request_error": "Bad request error",
+      "phonenumber_invalid_login": "Invalid login",
+      "phonenumber_no_login_attempts_found": "No login attempts found. Please try sending code again.",
+      "manual_entry_request_error": "Request error",
+      "manual_entry_auth_error": "Invalid user-id or token",
+      "unknown": "Unknown error occurred"
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Select action",
+        "data": {
+          "select_step": "Select action"
+        }
+      },
+      "show_token": {
+        "title": "Current user-id and token",
+        "description": "User-id and token can not be edited here. Use \"Reconfigure\" to change them.",
+        "data": {
+          "user_id": "User-id",
+          "token": "Token"
+        }
+      }
+    }
+  },
+  "selector": {
+    "login_method": {
+      "options": {
+        "phone_number": "Use phone number",
+        "manual": "Enter user-id and token manually"
+      }
+    },
+    "dev_token_options": {
+      "options": {
+        "cloud_charge": "Cloud Charge",
+        "defa_power": "DEFA Power",
+        "custom": "Custom developer token (enter below)"
+      }
+    },
+    "select_step": {
+      "options": {
+        "show_current_token": "Show current token"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "defa_power_currency_code": {
+        "name": "Currency code",
+        "state": {
+          "cad": "Canadian Dollar",
+          "chf": "Swiss Franc",
+          "czk": "Czech Koruna",
+          "dkk": "Danish Krone",
+          "eur": "Euro",
+          "gbp": "British Pound",
+          "huf": "Hungarian Forint",
+          "hrk": "Croatian Kuna",
+          "ils": "Israeli Shekel",
+          "isk": "Icelandic Krona",
+          "mtl": "Maltese Lira",
+          "skk": "Slovak Koruna",
+          "nok": "Norwegian Krone",
+          "sit": "Slovenian Tolar",
+          "pln": "Polish Zloty",
+          "ron": "Romanian Leu",
+          "rol": "Romanian Leu (old)",
+          "sek": "Swedish Krona",
+          "usd": "US Dollar",
+          "xof": "West African CFA Franc"
+        }
+      },
+      "defa_power_meter_value": {
+        "name": "Total energy consumption"
+      },
+      "defa_power_transaction_meter_value": {
+        "name": "Energy consumption (current charging session)"
+      },
+      "defa_power_power_consumption": {
+        "name": "Charging power"
+      },
+      "defa_power_charging_state": {
+        "name": "Charging state",
+        "state": {
+          "ev_connected": "EV Connected",
+          "charging": "Charging",
+          "suspended_ev": "Suspended by EV",
+          "suspended_evse": "Suspended by charger",
+          "idle": "Idle",
+          "unrecognized": "Unrecognized"
+        }
+      },
+      "defa_power_status": {
+        "name": "Status",
+        "state": {
+          "available": "Available",
+          "occupied": "Occupied",
+          "preparing": "Preparing",
+          "charging": "Charging",
+          "suspended_ev": "Suspended by EV",
+          "suspended_evse": "Suspended by charger",
+          "finishing": "Finishing",
+          "faulted": "Faulted",
+          "unavailable": "Unavailable",
+          "reserved": "Reserved",
+          "restarting": "Restarting",
+          "facility_finishing": "Facility finishing",
+          "idle": "Idle",
+          "ev_connected": "EV Connected"
+        }
+      },
+      "defa_power_power": {
+        "name": "Max charging power"
+      },
+      "defa_power_ampere": {
+        "name": "Current limit"
+      },
+      "defa_power_firmware_version": {
+        "name": "Firmware version"
+      }
+    },
+    "button": {
+      "defa_power_start_charging": {
+        "name": "Start charging"
+      },
+      "defa_power_stop_charging": {
+        "name": "Stop charging"
+      },
+      "defa_power_restart": {
+        "name": "Restart charger"
+      }
+    }
+  }
 }

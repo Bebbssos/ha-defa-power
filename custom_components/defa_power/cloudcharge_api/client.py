@@ -14,16 +14,18 @@ from .models import (
     LoadBalancer,
     NetworkConfiguration,
     OperationalData,
-    PrivateCharger,
+    PrivateChargePoint,
+    ChargePoint,
 )
 
 
+# Swagger file for api can be found at https://prod.cloudcharge.se/services/user/swagger.json
 class CloudChargeAPIClient:
     """CloudCharge API client."""
 
     __logged_in = False
 
-    def __init__(self, base_url: str):
+    def __init__(self, base_url: str) -> None:
         """Initialize the client."""
         self.__base_url = base_url
         self.__headers = {}
@@ -135,14 +137,27 @@ class CloudChargeAPIClient:
         if not response.ok:
             raise CloudChargeRequestError
 
-    async def async_get_private_chargers(self) -> list[PrivateCharger]:
-        """Get chargers. Login required."""
+    async def async_get_private_chargepoints(self) -> list[PrivateChargePoint]:
+        """Get private chargepoints. Login required."""
         self.__check_logged_in()
 
         async with (
             aiohttp.ClientSession() as session,
             session.get(
                 f"{self.__base_url}/chargers/private", headers=self.__headers
+            ) as response,
+        ):
+            await self.__async_check_response(response)
+            return await response.json()
+
+    async def async_get_chargepoint(self, chargepoint_id: str) -> ChargePoint:
+        """Get chargepoint. Login required."""
+        self.__check_logged_in()
+
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(
+                f"{self.__base_url}/chargepoints/get", headers=self.__headers, json={"token": chargepoint_id}
             ) as response,
         ):
             await self.__async_check_response(response)
@@ -200,6 +215,76 @@ class CloudChargeAPIClient:
             aiohttp.ClientSession() as session,
             session.post(
                 f"{self.__base_url}/connector/{connector_id}/startliveconsumption",
+                headers=self.__headers,
+            ) as response,
+        ):
+            await self.__async_check_response(response)
+
+    async def async_get_max_current_alternatives(
+        self, connector_id: str
+    ) -> dict[str, float]:
+        """Get max current alternatives (dict[current, charging power]). Login required."""
+        self.__check_logged_in()
+
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
+                f"{self.__base_url}/connector/{connector_id}/maxcurrent/alternatives",
+                headers=self.__headers,
+            ) as response,
+        ):
+            await self.__async_check_response(response)
+            return await response.json()
+
+    async def async_set_max_current(self, connector_id: str, current: int):
+        """Set max current. Login required."""
+        self.__check_logged_in()
+
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(
+                f"{self.__base_url}/connector/{connector_id}/maxcurrent?current={current}",
+                headers=self.__headers,
+            ) as response,
+        ):
+            await self.__async_check_response(response)
+
+    async def async_start_charging(self, connector_alias: str):
+        """Start charging. Login required."""
+        self.__check_logged_in()
+
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(
+                f"{self.__base_url}/charging/start",
+                headers=self.__headers,
+                json={"alias": connector_alias},
+            ) as response,
+        ):
+            await self.__async_check_response(response)
+
+    async def async_stop_charging(self, connector_alias: str):
+        """Stop charging. Login required."""
+        self.__check_logged_in()
+
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(
+                f"{self.__base_url}/charging/stop",
+                headers=self.__headers,
+                json={"alias": connector_alias},
+            ) as response,
+        ):
+            await self.__async_check_response(response)
+
+    async def async_restart_charger(self, connector_id: str):
+        """Restart charger. Login required."""
+        self.__check_logged_in()
+
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(
+                f"{self.__base_url}/connector/{connector_id}/reset?type=Hard",
                 headers=self.__headers,
             ) as response,
         ):

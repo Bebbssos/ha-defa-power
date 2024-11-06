@@ -4,6 +4,7 @@ import asyncio
 from datetime import timedelta
 import logging
 
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -19,7 +20,7 @@ _LOGGER = logging.getLogger(__name__)
 class CloudChargeChargersCoordinator(DataUpdateCoordinator):
     """CloudCharge chargers coordinator."""
 
-    def __init__(self, hass, client: CloudChargeAPIClient):
+    def __init__(self, hass: HomeAssistant, client: CloudChargeAPIClient) -> None:
         """Initialize coordinator."""
         super().__init__(
             hass,
@@ -45,23 +46,23 @@ class CloudChargeChargersCoordinator(DataUpdateCoordinator):
             # Note: using context is not required if there is no need or ability to limit
             # data retrieved from API.
             try:
-                chargers_data = await self.client.async_get_private_chargers()
+                chargers_data = await self.client.async_get_private_chargepoints()
             except CloudChargeAuthError as err:
                 raise ConfigEntryAuthFailed from err
             except CloudChargeAPIError as err:
                 raise UpdateFailed(f"Error communicating with API: {err}") from err
 
-            chargers = {}
+            chargePoints = {}
             connectors = {}
 
             for charger_data in chargers_data:
                 charger = charger_data["data"]
-                chargers[charger["id"]] = charger
-                for connector in charger["aliasMap"].values():
+                chargePoints[charger["id"]] = charger
+                for alias, connector in charger["aliasMap"].items():
                     connector["chargerId"] = charger["id"]
-                    connectors[connector["id"]] = connector
+                    connectors[alias] = connector
 
-            return {"chargers": chargers, "connectors": connectors}
+            return {"chargePoints": chargePoints, "connectors": connectors}
 
 
 class CloudChargeOperationalDataCoordinator(DataUpdateCoordinator):
