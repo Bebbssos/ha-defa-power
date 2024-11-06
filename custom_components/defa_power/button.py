@@ -8,7 +8,7 @@ import logging
 from .cloudcharge_api.exceptions import CloudChargeForbiddenError
 
 from .coordinator import CloudChargeOperationalDataCoordinator
-from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
+from homeassistant.components.button import ButtonDeviceClass, ButtonEntity, ButtonEntityDescription
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -170,6 +170,7 @@ class ChargerRestartButton(ButtonEntity):
         self._attr_unique_id = f"{instance_id}_{connector_id}_restart"
         self._attr_translation_key = "defa_power_restart"
         self._attr_icon = "mdi:restart"
+        self._attr_device_class = ButtonDeviceClass.RESTART
 
         self._attr_device_info = device.get_device_info()
 
