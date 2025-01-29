@@ -185,15 +185,6 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: tuple[DefaPowerConnectorSensorDescription, ..
         value_fn=lambda data: data.get("power"),
     ),
     DefaPowerConnectorSensorDescription[Connector](
-        key="ampere",
-        icon="mdi:current-ac",
-        round_digits=0,
-        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
-        state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.CURRENT,
-        value_fn=lambda data: data.get("ampere"),
-    ),
-    DefaPowerConnectorSensorDescription[Connector](
         key="firmware_version",
         icon="mdi:information-outline",
         value_fn=lambda data: data.get("firmwareVersion"),

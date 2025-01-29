@@ -161,9 +161,6 @@
       "defa_power_power": {
         "name": "Max charging power"
       },
-      "defa_power_ampere": {
-        "name": "Current limit"
-      },
       "defa_power_firmware_version": {
         "name": "Firmware version"
       }
@@ -177,6 +174,11 @@
       },
       "defa_power_restart": {
         "name": "Restart charger"
+      }
+    },
+    "number": {
+      "defa_power_ampere": {
+        "name": "Current limit"
       }
     }
   }
