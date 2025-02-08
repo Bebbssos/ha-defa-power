@@ -11,22 +11,46 @@ from homeassistant.components.number import (
 )
 from homeassistant.const import UnitOfElectricCurrent
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DefaPowerConfigEntry
-from .cloudcharge_api.models import Connector
 from .cloudcharge_api.client import CloudChargeAPIClient
+from .cloudcharge_api.models import Connector
 from .devices import ConnectorDevice
 
 _LOGGER = logging.getLogger(__name__)
 
 
-# TODO: Can this be done in the class instead, like Roborock?
-async def set_max_current(connector_id: str, client: CloudChargeAPIClient, current: int) -> None: 
+async def set_max_current(
+    connector_id: str, client: CloudChargeAPIClient, current: int
+) -> None:
+    """Set the maximum current for a given connector using the CloudChargeAPIClient."""
     await client.async_set_max_current(connector_id, current)
 
 
-@dataclass(frozen=True, kw_only=True)
+async def fetch_min_max_values(
+    client: CloudChargeAPIClient, connector_id: str
+) -> tuple[int, int]:
+    """Fetch min/max values from CloudChargeAPIClient asynchronously."""
+    try:
+        response = await client.async_get_max_current_alternatives(connector_id)
+
+        if response:
+            keys = sorted(int(k) for k in response)
+            return keys[0], keys[-1]  # Return min and max values
+
+    except (KeyError, ValueError, TypeError, Exception) as e:
+        _LOGGER.warning(
+            "Failed to fetch currentAlternatives for connector %s: %s. Using defaults",
+            connector_id,
+            e,
+        )
+
+    return 6, 32  # Default fallback values
+
+
+@dataclass(kw_only=True)  # Remove frozen=True
 class DefaPowerConnectorNumberDescription(NumberEntityDescription):
     """Class to describe a DEFA Power number entity."""
 
@@ -34,18 +58,20 @@ class DefaPowerConnectorNumberDescription(NumberEntityDescription):
     options: list[str] | None = None
     value_fn: Callable[[Connector], int] | None = None
     set_fn: Callable[[str, CloudChargeAPIClient, int], None] | None = None
+    get_limits_fn: Callable[[CloudChargeAPIClient, str], tuple[int, int]] | None = None
 
 
 DEFA_POWER_CONNECTOR_NUMBER_TYPES: tuple[DefaPowerConnectorNumberDescription, ...] = (
     DefaPowerConnectorNumberDescription(
         key="ampere",
         icon="mdi:current-ac",
-        native_min_value=6,     # TODO: Fetch these values from the API instead of hard coding them
-        native_max_value=15,
+        native_min_value=6,  # Default value
+        native_max_value=32,  # Default value
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         device_class=NumberDeviceClass.CURRENT,
         value_fn=lambda data: data.get("ampere"),
         set_fn=set_max_current,
+        get_limits_fn=fetch_min_max_values,
     ),
 )
 
@@ -58,18 +84,32 @@ async def async_setup_entry(
     instance_id = entry.data.get("instance_id") or "default"
     entities: list[NumberEntity] = []
 
+    coordinator = entry.runtime_data["chargers_coordinator"]
+    client = entry.runtime_data["client"]
+
     for connector_id, val in entry.runtime_data["connectors"].items():
-        for sensor_type in DEFA_POWER_CONNECTOR_NUMBER_TYPES:
-            coordinator = entry.runtime_data["chargers_coordinator"]
+        for description in DEFA_POWER_CONNECTOR_NUMBER_TYPES:
+            description_dict = description.__dict__.copy()
+
+            # Update min/max values if get_limits_fn is provided
+            if description.get_limits_fn:
+                min_limit, max_limit = await description.get_limits_fn(
+                    client, connector_id
+                )
+                description_dict["native_min_value"] = min_limit
+                description_dict["native_max_value"] = max_limit
+
+            # Create a new instance with updated values
+            entity_description = DefaPowerConnectorNumberDescription(**description_dict)
 
             entities.append(
                 DefaConnectorNumberEntity(
                     connector_id,
                     val["alias"],
                     coordinator,
-                    sensor_type,
+                    entity_description,
                     val["device"],
-                    entry.runtime_data["client"],
+                    client,
                     instance_id,
                 )
             )
@@ -142,10 +182,16 @@ class DefaConnectorNumberEntity(CoordinatorEntity, NumberEntity):
         if self._set_state():
             self.async_write_ha_state()
 
-    # TODO: Exception handling
     async def async_set_native_value(self, value: float) -> None:
-        await self.entity_description.set_fn(self.id, self.client, int(value))
-        await self.coordinator.async_request_refresh()
+        """Set new value."""
+        try:
+            await self.entity_description.set_fn(self.id, self.client, int(value))
+            await self.coordinator.async_request_refresh()
+        except Exception as e:
+            _LOGGER.error(
+                "Failed to set maximum current to %s for %s: %s", value, self.id, str(e)
+            )
+            raise HomeAssistantError("Failed to set maximum current") from e
 
     @property
     def state(self):

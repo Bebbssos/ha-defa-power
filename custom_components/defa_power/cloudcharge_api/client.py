@@ -10,12 +10,12 @@ from .exceptions import (
     CloudChargeRequestError,
 )
 from .models import (
+    ChargePoint,
     CloudChargeApiCredentials,
     LoadBalancer,
     NetworkConfiguration,
     OperationalData,
     PrivateChargePoint,
-    ChargePoint,
 )
 
 
@@ -157,7 +157,9 @@ class CloudChargeAPIClient:
         async with (
             aiohttp.ClientSession() as session,
             session.post(
-                f"{self.__base_url}/chargepoints/get", headers=self.__headers, json={"token": chargepoint_id}
+                f"{self.__base_url}/chargepoints/get",
+                headers=self.__headers,
+                json={"token": chargepoint_id},
             ) as response,
         ):
             await self.__async_check_response(response)
