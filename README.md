@@ -6,6 +6,7 @@ This is a custom integration for Home Assistant that allows you to control and m
 
 - Communicate with your DEFA Power EV charger via the CloudCharge API.
 - Monitor charging status and other key metrics.
+- Set charging current limit.
 - Start and stop charging.
 - Restart the charger.
 
