@@ -181,5 +181,75 @@
         "name": "Strömgräns"
       }
     }
+  },
+  "services": {
+    "set_current_limit": {
+      "name": "Ställ in strömgräns",
+      "description": "Ställ in maximal laddningsströmgräns för laddaren."
+    },
+    "set_eco_mode": {
+      "name": "Ställ in Eco-läge",
+      "description": "Konfigurera inställningar för eco-läge för laddaren.",
+      "fields": {
+        "active": {
+          "name": "Eco-läge aktivt",
+          "description": "Aktivera eller inaktivera eco-läge."
+        },
+        "hours_to_charge": {
+          "name": "Antal laddtimmar",
+          "description": "Antal timmar att ladda."
+        },
+        "pickup_time_enabled": {
+          "name": "Avresa",
+          "description": "Aktivera eller inaktivera avresa."
+        },
+        "pickup_time_mon": {
+          "name": "Avresa måndag",
+          "description": "Avresa för måndag (timme)."
+        },
+        "pickup_time_tue": {
+          "name": "Avresa tisdag",
+          "description": "Avresa för tisdag (timme)."
+        },
+        "pickup_time_wed": {
+          "name": "Avresa onsdag",
+          "description": "Avresa för onsdag (timme)."
+        },
+        "pickup_time_thu": {
+          "name": "Avresa torsdag",
+          "description": "Avresa för torsdag (timme)."
+        },
+        "pickup_time_fri": {
+          "name": "Avresa fredag",
+          "description": "Avresa för fredag (timme)."
+        },
+        "pickup_time_sat": {
+          "name": "Avresa lördag",
+          "description": "Avresa för lördag (timme)."
+        },
+        "pickup_time_sun": {
+          "name": "Avresa söndag",
+          "description": "Avresa för söndag (timme)."
+        }
+      }
+    },
+    "start_charging": {
+      "name": "Starta laddning",
+      "description": "Starta laddning."
+    },
+    "stop_charging": {
+      "name": "Stoppa laddning",
+      "description": "Stoppa laddning."
+    },
+    "reset_charger": {
+      "name": "Återställ laddare",
+      "description": "Återställ laddaren med en specificerad återställningstyp.",
+      "fields": {
+        "type": {
+          "name": "Återställningstyp",
+          "description": "Typ av återställning att utföra (mjuk eller hård)."
+        }
+      }
+    }
   }
 }

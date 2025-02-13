@@ -174,3 +174,26 @@ class NetworkConfiguration(TypedDict, total=False):
     ethernet: Ethernet
     wifi: WiFi
     mobile: Mobile
+
+
+class EcoModeConfigurationBase(TypedDict):
+    """Base eco mode configuration fields."""
+
+    active: bool
+    dayOfWeekMap: dict[str, int | None]
+    hoursToCharge: int
+    pickupTimeEnabled: bool
+
+
+class EcoModeConfigurationRequest(EcoModeConfigurationBase):
+    """Eco mode configuration request payload."""
+
+    pass
+
+
+class EcoModeConfiguration(EcoModeConfigurationBase):
+    """Eco mode configuration response."""
+
+    percentageNotToCharge: int | None
+    schedule: list[int]
+    scheduleOverridden: bool

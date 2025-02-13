@@ -5,18 +5,22 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 import logging
 
-from .cloudcharge_api.exceptions import CloudChargeForbiddenError
-
-from .coordinator import CloudChargeOperationalDataCoordinator
-from homeassistant.components.button import ButtonDeviceClass, ButtonEntity, ButtonEntityDescription
+from homeassistant.components.button import (
+    ButtonDeviceClass,
+    ButtonEntity,
+    ButtonEntityDescription,
+)
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DefaPowerConfigEntry
 from .cloudcharge_api.client import CloudChargeAPIClient
+from .cloudcharge_api.exceptions import CloudChargeForbiddenError
+from .coordinator import CloudChargeOperationalDataCoordinator
 from .devices import ConnectorDevice
 
 _LOGGER = logging.getLogger(__name__)
+
 
 @dataclass(frozen=True, kw_only=True)
 class DefaPowerChargeStartStopButtonDescription(ButtonEntityDescription):
@@ -44,20 +48,22 @@ async def stop_charging(alias: str, client: CloudChargeAPIClient) -> None:
         raise ValueError("Stopping charging is not allowed")
 
 
-DEFA_POWER_CONNECTOR_SENSOR_TYPES: tuple[DefaPowerChargeStartStopButtonDescription, ...] = (
+DEFA_POWER_CONNECTOR_SENSOR_TYPES: tuple[
+    DefaPowerChargeStartStopButtonDescription, ...
+] = (
     DefaPowerChargeStartStopButtonDescription(
         key="start_charging",
         icon="mdi:flash",
         on_press=start_charging,
         available_on_states=["EVConnected"],
-        refresh_coordinator_wait=5, # Start charging takes a while to update, waiting 5 seconds should be enough
+        refresh_coordinator_wait=5,  # Start charging takes a while to update, waiting 5 seconds should be enough
     ),
     DefaPowerChargeStartStopButtonDescription(
         key="stop_charging",
         icon="mdi:flash-off",
         on_press=stop_charging,
         available_on_states=["Charging", "SuspendedEV"],
-        refresh_coordinator_wait=1, # Stop charging is faster, waiting 1 second should be enough
+        refresh_coordinator_wait=1,  # Stop charging is faster, waiting 1 second should be enough
     ),
 )
 
@@ -84,7 +90,11 @@ async def async_setup_entry(
             )
             for sensorType in DEFA_POWER_CONNECTOR_SENSOR_TYPES
         )
-        entities.append(ChargerRestartButton(connector_id, val["device"], entry.runtime_data["client"], instance_id))
+        entities.append(
+            ChargerRestartButton(
+                connector_id, val["device"], entry.runtime_data["client"], instance_id
+            )
+        )
 
     async_add_entities(entities, update_before_add=True)
 
@@ -130,7 +140,10 @@ class ChargeStartStopButton(CoordinatorEntity, ButtonEntity):
             self.async_write_ha_state()
             await self.entity_description.on_press(self.connector_alias, self.client)
         finally:
-            _LOGGER.debug("Refreshing data in %s seconds", self.entity_description.refresh_coordinator_wait)
+            _LOGGER.debug(
+                "Refreshing data in %s seconds",
+                self.entity_description.refresh_coordinator_wait,
+            )
             try:
                 await asyncio.sleep(self.entity_description.refresh_coordinator_wait)
                 await self.coordinator.async_refresh()
@@ -141,7 +154,11 @@ class ChargeStartStopButton(CoordinatorEntity, ButtonEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        is_available = self.coordinator.data is not None and self.coordinator.data.get("ocpp", {}).get("chargingState") in self.entity_description.available_on_states
+        is_available = (
+            self.coordinator.data is not None
+            and self.coordinator.data.get("ocpp", {}).get("chargingState")
+            in self.entity_description.available_on_states
+        )
         if is_available != self.is_available:
             self.is_available = is_available
             self.async_write_ha_state()
@@ -150,6 +167,7 @@ class ChargeStartStopButton(CoordinatorEntity, ButtonEntity):
     def available(self):
         """Return True if entity is available."""
         return self.is_available and not self.is_processing
+
 
 class ChargerRestartButton(ButtonEntity):
     """Button entity for restarting charger."""
@@ -176,4 +194,4 @@ class ChargerRestartButton(ButtonEntity):
 
     async def async_press(self) -> None:
         """Handle the button press."""
-        await self.client.async_restart_charger(self.connector_id)
+        await self.client.async_reset_charger(self.connector_id, "hard")
