@@ -8,6 +8,7 @@ set_current_limit:
       selector:
         number:
           min: 1
+          max: 80
 
 set_eco_mode:
   target:
