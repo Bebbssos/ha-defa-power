@@ -185,7 +185,13 @@
   "services": {
     "set_current_limit": {
       "name": "Ställ in strömgräns",
-      "description": "Ställ in maximal laddningsströmgräns för laddaren."
+      "description": "Ställ in maximal laddningsströmgräns för laddaren.",
+      "fields": {
+        "current_limit": {
+          "name": "Strömgräns",
+          "description": "Maximal laddningsström i ampere."
+        }
+      }
     },
     "set_eco_mode": {
       "name": "Ställ in Eco-läge",

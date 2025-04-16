@@ -185,7 +185,13 @@
   "services": {
     "set_current_limit": {
       "name": "Set Current Limit",
-      "description": "Set the maximum charging current for the charger."
+      "description": "Set the maximum charging current for the charger.",
+      "fields": {
+        "current_limit": {
+          "name": "Current Limit",
+          "description": "Maximum charging current in amperes."
+        }
+      }
     },
     "set_eco_mode": {
       "name": "Set Eco Mode Settings",
