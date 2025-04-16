@@ -1,0 +1,97 @@
+set_current_limit:
+  target:
+    device:
+      integration: defa_power
+  fields:
+    current_limit:
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 80
+
+set_eco_mode:
+  target:
+    device:
+      integration: defa_power
+  fields:
+    active:
+      required: true
+      selector:
+        boolean:
+    hours_to_charge:
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 100
+    pickup_time_enabled:
+      required: true
+      selector:
+        boolean:
+    pickup_time_mon:
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 23
+    pickup_time_tue:
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 23
+    pickup_time_wed:
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 23
+    pickup_time_thu:
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 23
+    pickup_time_fri:
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 23
+    pickup_time_sat:
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 23
+    pickup_time_sun:
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 23
+
+start_charging:
+  target:
+    device:
+      integration: defa_power
+
+stop_charging:
+  target:
+    device:
+      integration: defa_power
+
+reset_charger:
+  target:
+    device:
+      integration: defa_power
+  fields:
+    type:
+      required: true
+      selector:
+        select:
+          options:
+            - "soft"
+            - "hard"
+      default: "soft"

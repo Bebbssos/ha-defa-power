@@ -181,5 +181,81 @@
         "name": "Current limit"
       }
     }
+  },
+  "services": {
+    "set_current_limit": {
+      "name": "Set Current Limit",
+      "description": "Set the maximum charging current for the charger.",
+      "fields": {
+        "current_limit": {
+          "name": "Current Limit",
+          "description": "Maximum charging current in amperes."
+        }
+      }
+    },
+    "set_eco_mode": {
+      "name": "Set Eco Mode Settings",
+      "description": "Configure eco mode settings for the charger.",
+      "fields": {
+        "active": {
+          "name": "Eco Mode Active",
+          "description": "Enable or disable eco mode."
+        },
+        "hours_to_charge": {
+          "name": "Charging Hours",
+          "description": "Number of hours to charge."
+        },
+        "pickup_time_enabled": {
+          "name": "Departure Enabled",
+          "description": "Enable or disable departure time."
+        },
+        "pickup_time_mon": {
+          "name": "Monday Departure",
+          "description": "Departure time for Monday (hour)."
+        },
+        "pickup_time_tue": {
+          "name": "Tuesday Departure",
+          "description": "Departure time for Tuesday (hour)."
+        },
+        "pickup_time_wed": {
+          "name": "Wednesday Departure",
+          "description": "Departure time for Wednesday (hour)."
+        },
+        "pickup_time_thu": {
+          "name": "Thursday Departure",
+          "description": "Departure time for Thursday (hour)."
+        },
+        "pickup_time_fri": {
+          "name": "Friday Departure",
+          "description": "Departure time for Friday (hour)."
+        },
+        "pickup_time_sat": {
+          "name": "Saturday Departure",
+          "description": "Departure time for Saturday (hour)."
+        },
+        "pickup_time_sun": {
+          "name": "Sunday Departure",
+          "description": "Departure time for Sunday (hour)."
+        }
+      }
+    },
+    "start_charging": {
+      "name": "Start Charging",
+      "description": "Start the charging process."
+    },
+    "stop_charging": {
+      "name": "Stop Charging",
+      "description": "Stop the charging process."
+    },
+    "reset_charger": {
+      "name": "Reset Charger",
+      "description": "Reset the charger with a specified reset type.",
+      "fields": {
+        "type": {
+          "name": "Reset Type",
+          "description": "Type of reset to perform (soft or hard)."
+        }
+      }
+    }
   }
 }

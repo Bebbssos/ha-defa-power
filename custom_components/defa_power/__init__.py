@@ -1,7 +1,6 @@
 """DEFA Power integration for Home Assistant."""
 
 import logging
-from typing import TypedDict
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -13,35 +12,15 @@ from .coordinator import (
     CloudChargeOperationalDataCoordinator,
 )
 from .devices import ChargePointDevice, ConnectorDevice
+from .models import (
+    DefaPowerConfigEntry,
+    RuntimeData,
+    RuntimeDataChargePoint,
+    RuntimeDataConnector,
+)
+from .services import async_setup_services
 
 _LOGGER = logging.getLogger(__name__)
-
-
-class RuntimeDataChargePoint(TypedDict):
-    """Runtime data for a charger."""
-
-    device: ChargePointDevice
-
-
-class RuntimeDataConnector(TypedDict):
-    """Runtime data for a connector."""
-
-    device: ConnectorDevice
-    alias: str
-    operational_data_coordinator: CloudChargeOperationalDataCoordinator
-
-
-class RuntimeData(TypedDict):
-    """Runtime data for DEFA Power."""
-
-    chargers_coordinator: CloudChargeChargersCoordinator
-    chargerPoints: dict[str, RuntimeDataChargePoint]
-    connectors: dict[str, RuntimeDataConnector]
-
-    client: CloudChargeAPIClient
-
-
-type DefaPowerConfigEntry = ConfigEntry[RuntimeData]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) -> bool:
@@ -91,14 +70,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
 
     entry.async_on_unload(entry.add_update_listener(update_listener))
 
-    await hass.config_entries.async_forward_entry_setups(entry, ["sensor", "button", "number"])
+    await hass.config_entries.async_forward_entry_setups(
+        entry, ["sensor", "button", "number"]
+    )
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry) -> bool:
     """Unload a config entry."""
     _LOGGER.info("Unloading DEFA Power config entry")
-    await hass.config_entries.async_unload_platforms(entry, ["sensor", "button", "number"])
+    await hass.config_entries.async_unload_platforms(
+        entry, ["sensor", "button", "number"]
+    )
     return True
 
 
@@ -142,3 +125,9 @@ async def update_listener(hass: HomeAssistant, entry: DefaPowerConfigEntry):
     _LOGGER.info("Handling options update")
 
     entry.runtime_data["client"].import_credentials(entry.data["credentials"])
+
+
+async def async_setup(hass: HomeAssistant, config):
+    """Set up the integration."""
+    await async_setup_services(hass)
+    return True

@@ -1,5 +1,7 @@
 """CloudCharge API client."""
 
+from typing import Literal
+
 import aiohttp
 
 from .exceptions import (
@@ -12,6 +14,8 @@ from .exceptions import (
 from .models import (
     ChargePoint,
     CloudChargeApiCredentials,
+    EcoModeConfiguration,
+    EcoModeConfigurationRequest,
     LoadBalancer,
     NetworkConfiguration,
     OperationalData,
@@ -279,15 +283,49 @@ class CloudChargeAPIClient:
         ):
             await self.__async_check_response(response)
 
-    async def async_restart_charger(self, connector_id: str):
+    async def async_reset_charger(
+        self, connector_id: str, type: Literal["hard", "soft"]
+    ):
         """Restart charger. Login required."""
         self.__check_logged_in()
 
         async with (
             aiohttp.ClientSession() as session,
             session.post(
-                f"{self.__base_url}/connector/{connector_id}/reset?type=Hard",
+                f"{self.__base_url}/connector/{connector_id}/reset?type={type}",
                 headers=self.__headers,
+            ) as response,
+        ):
+            await self.__async_check_response(response)
+
+    async def async_get_eco_mode_configuration(
+        self, connector_id: str
+    ) -> EcoModeConfiguration:
+        """Get eco mode configuration. Login required."""
+        self.__check_logged_in()
+
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
+                f"{self.__base_url}/connector/{connector_id}/ecomode/configuration",
+                headers=self.__headers,
+            ) as response,
+        ):
+            await self.__async_check_response(response)
+            return await response.json()
+
+    async def async_set_eco_mode_configuration(
+        self, connector_id: str, config: EcoModeConfigurationRequest
+    ):
+        """Set eco mode configuration. Login required."""
+        self.__check_logged_in()
+
+        async with (
+            aiohttp.ClientSession() as session,
+            session.put(
+                f"{self.__base_url}/connector/{connector_id}/ecomode/configuration",
+                headers=self.__headers,
+                json=config,
             ) as response,
         ):
             await self.__async_check_response(response)
