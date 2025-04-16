@@ -17,10 +17,12 @@ CONF_USER_ID = "userId"
 _LOGGER = logging.getLogger(__name__)
 
 
-class CloudChargeChargersCoordinator(DataUpdateCoordinator):
+class CloudChargeChargepointCoordinator(DataUpdateCoordinator):
     """CloudCharge chargers coordinator."""
 
-    def __init__(self, hass: HomeAssistant, client: CloudChargeAPIClient) -> None:
+    def __init__(
+        self, chargepoint_id: str, hass: HomeAssistant, client: CloudChargeAPIClient
+    ) -> None:
         """Initialize coordinator."""
         super().__init__(
             hass,
@@ -28,12 +30,13 @@ class CloudChargeChargersCoordinator(DataUpdateCoordinator):
             # Name of the data. For logging purposes.
             name="CloudCharge chargers",
             # Polling interval. Will only be polled if there are subscribers.
-            update_interval=timedelta(minutes=60),
+            update_interval=timedelta(minutes=15),
             # Set always_update to `False` if the data returned from the
             # api can be compared via `__eq__` to avoid duplicate updates
             # being dispatched to listeners
             always_update=True,
         )
+        self.chargepoint_id = chargepoint_id
         self.client = client
 
     async def _async_update_data(self):
@@ -46,29 +49,29 @@ class CloudChargeChargersCoordinator(DataUpdateCoordinator):
             # Note: using context is not required if there is no need or ability to limit
             # data retrieved from API.
             try:
-                chargers_data = await self.client.async_get_private_chargepoints()
+                chargepoint = await self.client.async_get_chargepoint(
+                    self.chargepoint_id
+                )
             except CloudChargeAuthError as err:
                 raise ConfigEntryAuthFailed from err
             except CloudChargeAPIError as err:
                 raise UpdateFailed(f"Error communicating with API: {err}") from err
 
-            chargePoints = {}
             connectors = {}
 
-            for charger_data in chargers_data:
-                charger = charger_data["data"]
-                chargePoints[charger["id"]] = charger
-                for alias, connector in charger["aliasMap"].items():
-                    connector["chargerId"] = charger["id"]
-                    connectors[alias] = connector
+            for alias, connector in chargepoint["aliasMap"].items():
+                connector["chargepoint_id"] = chargepoint["id"]
+                connectors[alias] = connector
 
-            return {"chargePoints": chargePoints, "connectors": connectors}
+            return {"chargepoint": chargepoint, "connectors": connectors}
 
 
 class CloudChargeOperationalDataCoordinator(DataUpdateCoordinator):
     """CloudCharge operational data coordinator."""
 
-    def __init__(self, connector_id: str, hass, client: CloudChargeAPIClient):
+    def __init__(
+        self, connector_id: str, hass: HomeAssistant, client: CloudChargeAPIClient
+    ) -> None:
         """Initialize coordinator."""
         super().__init__(
             hass,

@@ -84,7 +84,6 @@ async def async_setup_entry(
     instance_id = entry.data.get("instance_id") or "default"
     entities: list[NumberEntity] = []
 
-    coordinator = entry.runtime_data["chargers_coordinator"]
     client = entry.runtime_data["client"]
 
     for connector_id, val in entry.runtime_data["connectors"].items():
@@ -101,6 +100,10 @@ async def async_setup_entry(
 
             # Create a new instance with updated values
             entity_description = DefaPowerConnectorNumberDescription(**description_dict)
+
+            chargepoint_id = val["chargepoint_id"]
+            chargepoint_data = entry.runtime_data["chargepoints"][chargepoint_id]
+            coordinator = chargepoint_data["coordinator"]
 
             entities.append(
                 DefaConnectorNumberEntity(

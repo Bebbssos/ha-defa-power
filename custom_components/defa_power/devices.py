@@ -32,7 +32,7 @@ class ConnectorDevice:
             name=data.get("displayName") or alias or data["id"],
             sw_version=data["firmwareVersion"],
             serial_number=data["serialNumber"],
-            via_device=(DOMAIN, instance_id, data["chargerId"]),
+            via_device=(DOMAIN, instance_id, data["chargepoint_id"]),
         )
 
     def get_device_info(self):
