@@ -9,6 +9,7 @@ This is a custom integration for Home Assistant that allows you to control and m
 - Set charging current limit.
 - Start and stop charging.
 - Restart the charger.
+- Configure eco mode settings (currently only via actions, entities coming soon).
 
 ### Installation Instructions
 
@@ -68,10 +69,18 @@ After setting up the integration, you can retrieve your user-id and token by fol
 2. Select `Configure` on the integration instance.
 3. Choose `Show current token`.
 
+### Available Actions (Services)
+
+The integration provides several actions (services) that can be called from automations, scripts, or the Developer Tools > Services panel in Home Assistant.
+
+> **Important:** When calling any action, you must specify the target device as the specific connector you want to control, not the overall charger.
+
+For complete documentation on available actions, please see [ACTIONS.md](ACTIONS.md).
+
 ### To-Do List
 
 - [ ] **Additional Entities**: Add more entities from the data provided by the CloudCharge API.
-- [ ] **Eco Mode Configuration**: Add functionality to set eco mode options.
+- [ ] **Eco Mode Configuration**: Add functionality to control eco mode through entities (currently only available via actions).
 
 ### Disclaimer
 
