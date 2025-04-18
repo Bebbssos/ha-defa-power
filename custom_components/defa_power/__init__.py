@@ -9,6 +9,7 @@ from .cloudcharge_api.client import CloudChargeAPIClient
 from .const import API_BASE_URL
 from .coordinator import (
     CloudChargeChargepointCoordinator,
+    CloudChargeEcoModeCoordinator,
     CloudChargeOperationalDataCoordinator,
 )
 from .devices import ChargePointDevice, ConnectorDevice
@@ -62,9 +63,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
             )
             await operational_data_coordinator.async_config_entry_first_refresh()
 
+            eco_mode_coordinator = CloudChargeEcoModeCoordinator(
+                connector_id, hass, client
+            )
+            await eco_mode_coordinator.async_config_entry_first_refresh()
+
             c["device"] = ConnectorDevice(val, instance_id, alias)
             c["alias"] = alias
             c["operational_data_coordinator"] = operational_data_coordinator
+            c["eco_mode_coordinator"] = eco_mode_coordinator
             c["chargepoint_id"] = chargepoint_id
 
     entry.runtime_data = data
@@ -72,7 +79,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
     entry.async_on_unload(entry.add_update_listener(update_listener))
 
     await hass.config_entries.async_forward_entry_setups(
-        entry, ["sensor", "button", "number"]
+        entry, ["sensor", "button", "number", "select"]
     )
     return True
 
@@ -81,7 +88,7 @@ async def async_unload_entry(hass: HomeAssistant, entry) -> bool:
     """Unload a config entry."""
     _LOGGER.info("Unloading DEFA Power config entry")
     await hass.config_entries.async_unload_platforms(
-        entry, ["sensor", "button", "number"]
+        entry, ["sensor", "button", "number", "select"]
     )
     return True
 

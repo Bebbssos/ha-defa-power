@@ -117,3 +117,44 @@ class CloudChargeOperationalDataCoordinator(DataUpdateCoordinator):
                     self.update_interval = timedelta(seconds=10)
                     await self.client.async_start_live_consumption(self.connector_id)
             return data
+
+
+class CloudChargeEcoModeCoordinator(DataUpdateCoordinator):
+    """CloudCharge operational data coordinator."""
+
+    def __init__(self, connector_id: str, hass, client: CloudChargeAPIClient):
+        """Initialize coordinator."""
+        super().__init__(
+            hass,
+            _LOGGER,
+            # Name of the data. For logging purposes.
+            name="CloudCharge eco mode data",
+            # Polling interval. Will only be polled if there are subscribers.
+            update_interval=timedelta(minutes=15),
+            # Set always_update to `False` if the data returned from the
+            # api can be compared via `__eq__` to avoid duplicate updates
+            # being dispatched to listeners
+            always_update=True,
+        )
+        self.connector_id = connector_id
+        self.client = client
+
+    async def _async_update_data(self):
+        """Fetch data from API endpoint."""
+        # try:
+        # Note: asyncio.TimeoutError and aiohttp.ClientError are already
+        # handled by the data update coordinator.
+        async with asyncio.timeout(10):
+            # Grab active context variables to limit data required to be fetched from API
+            # Note: using context is not required if there is no need or ability to limit
+            # data retrieved from API.
+            try:
+                data = await self.client.async_get_eco_mode_configuration(
+                    self.connector_id
+                )
+            except CloudChargeAuthError as err:
+                raise ConfigEntryAuthFailed from err
+            except CloudChargeAPIError as err:
+                raise UpdateFailed(f"Error communicating with API: {err}") from err
+
+            return data
