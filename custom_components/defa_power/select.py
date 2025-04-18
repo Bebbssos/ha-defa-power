@@ -2,17 +2,15 @@
 
 import logging
 
-from config.custom_components.defa_power import DefaPowerConfigEntry
-from config.custom_components.defa_power.cloudcharge_api.client import (
-    CloudChargeAPIClient,
-)
-from config.custom_components.defa_power.coordinator import (
-    CloudChargeEcoModeCoordinator,
-)
-from config.custom_components.defa_power.devices import ConnectorDevice
 from homeassistant.components.select import SelectEntity
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from . import DefaPowerConfigEntry
+from .cloudcharge_api.client import CloudChargeAPIClient
+from .cloudcharge_api.models import EcoModeConfiguration, EcoModeConfigurationRequest
+from .coordinator import CloudChargeEcoModeCoordinator
+from .devices import ConnectorDevice
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -165,3 +163,22 @@ class EcoModeWeekDayScheduleSelect(CoordinatorEntity, SelectEntity):
 
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
+        if option == "disabled":
+            new_state = None
+        else:
+            new_state = int(option)
+
+        current_data: EcoModeConfiguration = self.coordinator.data
+
+        request: EcoModeConfigurationRequest = {
+            "active": current_data["active"],
+            "hoursToCharge": current_data["hoursToCharge"],
+            "pickupTimeEnabled": current_data["pickupTimeEnabled"],
+            "dayOfWeekMap": {
+                **current_data["dayOfWeekMap"],
+                self._weekday_upper: new_state,
+            },
+        }
+
+        await self.client.async_set_eco_mode_configuration(self.connector_id, request)
+        await self.coordinator.async_request_refresh()

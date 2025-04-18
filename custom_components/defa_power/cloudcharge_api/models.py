@@ -188,8 +188,6 @@ class EcoModeConfigurationBase(TypedDict):
 class EcoModeConfigurationRequest(EcoModeConfigurationBase):
     """Eco mode configuration request payload."""
 
-    pass
-
 
 class EcoModeConfiguration(EcoModeConfigurationBase):
     """Eco mode configuration response."""
