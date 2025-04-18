@@ -36,16 +36,16 @@ async def start_charging(alias: str, client: CloudChargeAPIClient) -> None:
     """Start charging."""
     try:
         await client.async_start_charging(alias)
-    except CloudChargeForbiddenError:
-        raise ValueError("Starting charging is not allowed")
+    except CloudChargeForbiddenError as exc:
+        raise ValueError("Starting charging is not allowed") from exc
 
 
 async def stop_charging(alias: str, client: CloudChargeAPIClient) -> None:
     """Stop charging."""
     try:
         await client.async_stop_charging(alias)
-    except CloudChargeForbiddenError:
-        raise ValueError("Stopping charging is not allowed")
+    except CloudChargeForbiddenError as exc:
+        raise ValueError("Stopping charging is not allowed") from exc
 
 
 DEFA_POWER_CONNECTOR_SENSOR_TYPES: tuple[

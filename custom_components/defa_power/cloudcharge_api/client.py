@@ -141,6 +141,60 @@ class CloudChargeAPIClient:
         if not response.ok:
             raise CloudChargeRequestError
 
+    async def async_get_chargepoint_ids(
+        self,
+        skip_private: bool = False,
+        skip_receiving_access: bool = False,
+    ) -> list[str]:
+        """Get chargepoint ids combined from multiple endpoints.
+
+        Args:
+            skip_private: Skip fetching private chargers
+            skip_receiving_access: Skip fetching chargers with receiving access
+
+        Returns:
+            List of distinct chargepoint IDs
+
+        Raises:
+            CloudChargeNotLoggedInError: If not logged in
+            CloudChargeRequestError: If request fails
+            CloudChargeAuthError: If authentication fails
+
+        """
+        self.__check_logged_in()
+        ids = set()
+
+        # Fetch private chargers
+        if not skip_private:
+            async with (
+                aiohttp.ClientSession() as session,
+                session.get(
+                    f"{self.__base_url}/chargers/private", headers=self.__headers
+                ) as response,
+            ):
+                await self.__async_check_response(response)
+                data = await response.json()
+                for charger in data:
+                    if "data" in charger and "id" in charger["data"]:
+                        ids.add(charger["data"]["id"])
+
+        # Fetch receiving access chargers
+        if not skip_receiving_access:
+            async with (
+                aiohttp.ClientSession() as session,
+                session.get(
+                    f"{self.__base_url}/mychargers", headers=self.__headers
+                ) as response,
+            ):
+                await self.__async_check_response(response)
+                data = await response.json()
+                if data and "receivingAccess" in data:
+                    for access in data["receivingAccess"]:
+                        if "chargePoint" in access and "id" in access["chargePoint"]:
+                            ids.add(access["chargePoint"]["id"])
+
+        return list(ids)
+
     async def async_get_private_chargepoints(self) -> list[PrivateChargePoint]:
         """Get private chargepoints. Login required."""
         self.__check_logged_in()

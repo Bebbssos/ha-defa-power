@@ -12,7 +12,7 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import UnitOfElectricCurrent, UnitOfEnergy, UnitOfPower
+from homeassistant.const import UnitOfEnergy, UnitOfPower
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -200,11 +200,11 @@ async def async_setup_entry(
     instance_id = entry.data.get("instance_id") or "default"
     entities: list[SensorEntity] = []
 
-    for connector_id, val in entry.runtime_data["chargePoints"].items():
+    for chargepoint_id, val in entry.runtime_data["chargepoints"].items():
         entities.extend(
             DefaChargePointEntity(
-                connector_id,
-                entry.runtime_data["chargers_coordinator"],
+                chargepoint_id,
+                val["coordinator"],
                 sensorType,
                 val["device"],
                 instance_id,
@@ -214,9 +214,12 @@ async def async_setup_entry(
 
     for connector_id, val in entry.runtime_data["connectors"].items():
         for sensor_type in DEFA_POWER_CONNECTOR_SENSOR_TYPES:
-            coordinator = entry.runtime_data["chargers_coordinator"]
             if sensor_type.coordinator == Coordinator.OPERATIONAL_DATA:
                 coordinator = val["operational_data_coordinator"]
+            else:
+                chargepoint_id = val["chargepoint_id"]
+                chargepoint_data = entry.runtime_data["chargepoints"][chargepoint_id]
+                coordinator = chargepoint_data["coordinator"]
 
             entities.append(
                 DefaConnectorEntity(
@@ -264,7 +267,7 @@ class DefaChargePointEntity(CoordinatorEntity, SensorEntity):
             self._attr_entity_registry_enabled_default = False
 
         if description.round_digits is not None:
-            self.attr_suggested_display_precision = description.round_digits
+            self._attr_suggested_display_precision = description.round_digits
 
         self.id = id
         self._attr_device_info = device.get_device_info()
@@ -281,7 +284,7 @@ class DefaChargePointEntity(CoordinatorEntity, SensorEntity):
             return False
 
         new_state = self.entity_description.value_fn(
-            self.coordinator.data["chargePoints"][self.id]
+            self.coordinator.data["chargepoint"]
         )
 
         if new_state != self.state_val:
@@ -351,7 +354,7 @@ class DefaConnectorEntity(CoordinatorEntity, SensorEntity):
             self._attr_entity_registry_enabled_default = False
 
         if description.round_digits is not None:
-            self.attr_suggested_display_precision = description.round_digits
+            self._attr_suggested_display_precision = description.round_digits
 
         self.id = id
         self.alias = alias

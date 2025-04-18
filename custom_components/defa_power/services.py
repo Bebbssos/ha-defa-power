@@ -85,7 +85,10 @@ async def async_setup_services(hass: HomeAssistant):
             await runtime_data["client"].async_set_max_current(
                 connector_id, current_limit
             )
-            await runtime_data["chargers_coordinator"].async_refresh()
+            chargepoint_id = runtime_data["connectors"][connector_id]["chargepoint_id"]
+            await runtime_data["chargepoints"][chargepoint_id][
+                "coordinator"
+            ].async_refresh()
 
     async def handle_set_eco_mode(call: ServiceCall):
         """Handle setting eco mode."""
