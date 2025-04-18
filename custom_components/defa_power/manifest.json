@@ -1,12 +1,14 @@
 {
   "domain": "defa_power",
   "name": "DEFA Power",
-  "codeowners": ["@Bebbssos"],
+  "codeowners": [
+    "@Bebbssos"
+  ],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/Bebbssos/ha-defa-power",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/Bebbssos/ha-defa-power/issues",
   "requirements": [],
-  "version": "0.4.0"
+  "version": "0.5.0-beta"
 }
