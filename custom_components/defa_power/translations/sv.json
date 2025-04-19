@@ -93,6 +93,14 @@
         }
     },
     "entity": {
+        "switch": {
+            "defa_power_eco_mode_active": {
+                "name": "Eco-läge"
+            },
+            "defa_power_eco_mode_pickup_time_enabled": {
+                "name": "Eco-läge: Avgångstid aktiverad"
+            }
+        },
         "sensor": {
             "defa_power_currency_code": {
                 "name": "Valutakod",

@@ -93,6 +93,14 @@
     }
   },
   "entity": {
+    "switch": {
+      "defa_power_eco_mode_active": {
+        "name": "Eco mode"
+      },
+      "defa_power_eco_mode_pickup_time_enabled": {
+        "name": "Eco mode: Departure time enabled"
+      }
+    },
     "sensor": {
       "defa_power_currency_code": {
         "name": "Currency code",
