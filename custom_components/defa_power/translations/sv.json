@@ -1,473 +1,476 @@
 {
-  "config": {
-    "step": {
-      "reauth_confirm": {
-        "title": "Återautentisering krävs",
-        "description": "DEFA Power behöver återautentisera ditt konto"
-      },
-      "choose_method": {
-        "title": "Välj inloggningsmetod",
-        "data": {
-          "method": "Inloggningsmetod"
+    "config": {
+        "step": {
+            "reauth_confirm": {
+                "title": "Återautentisering krävs",
+                "description": "DEFA Power behöver återautentisera ditt konto"
+            },
+            "choose_method": {
+                "title": "Välj inloggningsmetod",
+                "data": {
+                    "method": "Inloggningsmetod"
+                }
+            },
+            "send_code": {
+                "title": "Logga in med telefonnummer",
+                "description": "Ange ditt telefonnummer för att få en SMS-kod.\n\nDu kan bara vara inloggad på en enhet åt gången per app som använder CloudCharge API.\nVälj en app att simulera som du inte använder.",
+                "data": {
+                    "phone_number": "Telefonnummer (med landskod)",
+                    "dev_token_options": "App att simulera",
+                    "custom_dev_token": "Anpassad utvecklartoken"
+                }
+            },
+            "sms_code": {
+                "title": "Ange SMS-kod",
+                "description": "Ange SMS-koden du fick",
+                "data": {
+                    "sms_code": "SMS-kod"
+                }
+            },
+            "manual_entry": {
+                "title": "Manuell inloggning",
+                "description": "Ange användar-id och token",
+                "data": {
+                    "user_id": "Användar-id",
+                    "token": "Token"
+                }
+            }
+        },
+        "abort": {
+            "existing_entry_not_found": "Befintlig post hittades inte.",
+            "reauth_successful": "Återautentisering lyckades",
+            "reconfigure_successful": "Omkonfiguration lyckades"
+        },
+        "error": {
+            "phonenumber_request_error": "Inloggningsbegäran misslyckades",
+            "phonenumber_invalid": "Ogiltigt telefonnummer",
+            "phonenumber_invalid_dev_token": "Ogiltig utvecklartoken",
+            "phonenumber_login_error": "Okänt fel inträffade",
+            "phonenumber_bad_request_error": "Felaktig begäran",
+            "phonenumber_invalid_login": "Ogiltig inloggning",
+            "phonenumber_no_login_attempts_found": "Inga inloggningsförsök hittades. Försök att skicka koden igen.",
+            "manual_entry_request_error": "Begäran misslyckades",
+            "manual_entry_auth_error": "Ogiltigt användar-id eller token",
+            "unknown": "Okänt fel inträffade"
         }
-      },
-      "send_code": {
-        "title": "Logga in med telefonnummer",
-        "description": "Ange ditt telefonnummer för att få en SMS-kod.\n\nDu kan bara vara inloggad på en enhet åt gången per app som använder CloudCharge API.\nVälj en app att simulera som du inte använder.",
-        "data": {
-          "phone_number": "Telefonnummer (med landskod)",
-          "dev_token_options": "App att simulera",
-          "custom_dev_token": "Anpassad utvecklartoken"
-        }
-      },
-      "sms_code": {
-        "title": "Ange SMS-kod",
-        "description": "Ange SMS-koden du fick",
-        "data": {
-          "sms_code": "SMS-kod"
-        }
-      },
-      "manual_entry": {
-        "title": "Manuell inloggning",
-        "description": "Ange användar-id och token",
-        "data": {
-          "user_id": "Användar-id",
-          "token": "Token"
-        }
-      }
     },
-    "abort": {
-      "existing_entry_not_found": "Befintlig post hittades inte.",
-      "reauth_successful": "Återautentisering lyckades",
-      "reconfigure_successful": "Omkonfiguration lyckades"
+    "options": {
+        "step": {
+            "init": {
+                "title": "Välj åtgärd",
+                "data": {
+                    "select_step": "Välj åtgärd"
+                }
+            },
+            "show_token": {
+                "title": "Nuvarande användar-id och token",
+                "description": "Användar-id och token kan inte redigeras här. Använd \"Konfigurera om\" för att ändra dem.",
+                "data": {
+                    "user_id": "Användar-id",
+                    "token": "Token"
+                }
+            }
+        }
     },
-    "error": {
-      "phonenumber_request_error": "Inloggningsbegäran misslyckades",
-      "phonenumber_invalid": "Ogiltigt telefonnummer",
-      "phonenumber_invalid_dev_token": "Ogiltig utvecklartoken",
-      "phonenumber_login_error": "Okänt fel inträffade",
-      "phonenumber_bad_request_error": "Felaktig begäran",
-      "phonenumber_invalid_login": "Ogiltig inloggning",
-      "phonenumber_no_login_attempts_found": "Inga inloggningsförsök hittades. Försök att skicka koden igen.",
-      "manual_entry_request_error": "Begäran misslyckades",
-      "manual_entry_auth_error": "Ogiltigt användar-id eller token",
-      "unknown": "Okänt fel inträffade"
+    "selector": {
+        "login_method": {
+            "options": {
+                "phone_number": "Använd telefonnummer",
+                "manual": "Ange användar-id och token manuellt"
+            }
+        },
+        "dev_token_options": {
+            "options": {
+                "cloud_charge": "Cloud Charge",
+                "defa_power": "DEFA Power",
+                "custom": "Anpassad utvecklartoken (ange nedan)"
+            }
+        },
+        "select_step": {
+            "options": {
+                "show_current_token": "Visa nuvarande token"
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "defa_power_currency_code": {
+                "name": "Valutakod",
+                "state": {
+                    "cad": "Kanadensiska dollar",
+                    "chf": "Schweiziska franc",
+                    "czk": "Tjeckiska koruna",
+                    "dkk": "Danska kronor",
+                    "eur": "Euro",
+                    "gbp": "Brittiska pund",
+                    "huf": "Ungerska forint",
+                    "hrk": "Kroatiska kuna",
+                    "ils": "Israeliska shekel",
+                    "isk": "Isländska kronor",
+                    "mtl": "Maltesiska lira",
+                    "skk": "Slovakiska koruna",
+                    "nok": "Norska kronor",
+                    "sit": "Slovenska tolar",
+                    "pln": "Polska zloty",
+                    "ron": "Rumänska leu",
+                    "rol": "Rumänska leu (gammal)",
+                    "sek": "Svenska kronor",
+                    "usd": "Amerikanska dollar",
+                    "xof": "Västafrikanska CFA-franc"
+                }
+            },
+            "defa_power_meter_value": {
+                "name": "Total energiförbrukning"
+            },
+            "defa_power_transaction_meter_value": {
+                "name": "Energiförbrukning (nuvarande laddning)"
+            },
+            "defa_power_power_consumption": {
+                "name": "Laddningseffekt"
+            },
+            "defa_power_charging_state": {
+                "name": "Laddningstillstånd",
+                "state": {
+                    "ev_connected": "Elbil ansluten",
+                    "charging": "Laddar",
+                    "suspended_ev": "Pausad av elbil",
+                    "suspended_evse": "Pausad av laddstation",
+                    "idle": "Inaktiv",
+                    "unrecognized": "Oigenkänd"
+                }
+            },
+            "defa_power_status": {
+                "name": "Status",
+                "state": {
+                    "available": "Tillgänglig",
+                    "occupied": "Upptagen",
+                    "preparing": "Förbereder",
+                    "charging": "Laddar",
+                    "suspended_ev": "Pausad av elbil",
+                    "suspended_evse": "Pausad av laddstation",
+                    "finishing": "Avslutar",
+                    "faulted": "Fel",
+                    "unavailable": "Otillgänglig",
+                    "reserved": "Reserverad",
+                    "restarting": "Startar om",
+                    "facility_finishing": "Anläggning avslutar",
+                    "idle": "Inaktiv",
+                    "ev_connected": "Elbil ansluten"
+                }
+            },
+            "defa_power_power": {
+                "name": "Max laddningseffekt"
+            },
+            "defa_power_firmware_version": {
+                "name": "Firmware-version"
+            }
+        },
+        "button": {
+            "defa_power_start_charging": {
+                "name": "Starta laddning"
+            },
+            "defa_power_stop_charging": {
+                "name": "Stoppa laddning"
+            },
+            "defa_power_restart": {
+                "name": "Starta om laddare"
+            }
+        },
+        "number": {
+            "defa_power_ampere": {
+                "name": "Strömgräns"
+            },
+            "defa_power_hours_to_charge": {
+                "name": "Eco-läge: Antal laddtimmar"
+            }
+        },
+        "select": {
+            "defa_power_eco_mode_schedule_monday": {
+                "name": "Eco-läge: Måndag avgångstid",
+                "state": {
+                    "disabled": "Inaktiverad",
+                    "0": "00:00",
+                    "1": "01:00",
+                    "2": "02:00",
+                    "3": "03:00",
+                    "4": "04:00",
+                    "5": "05:00",
+                    "6": "06:00",
+                    "7": "07:00",
+                    "8": "08:00",
+                    "9": "09:00",
+                    "10": "10:00",
+                    "11": "11:00",
+                    "12": "12:00",
+                    "13": "13:00",
+                    "14": "14:00",
+                    "15": "15:00",
+                    "16": "16:00",
+                    "17": "17:00",
+                    "18": "18:00",
+                    "19": "19:00",
+                    "20": "20:00",
+                    "21": "21:00",
+                    "22": "22:00",
+                    "23": "23:00"
+                }
+            },
+            "defa_power_eco_mode_schedule_tuesday": {
+                "name": "Eco-läge: Tisdag avgångstid",
+                "state": {
+                    "disabled": "Inaktiverad",
+                    "0": "00:00",
+                    "1": "01:00",
+                    "2": "02:00",
+                    "3": "03:00",
+                    "4": "04:00",
+                    "5": "05:00",
+                    "6": "06:00",
+                    "7": "07:00",
+                    "8": "08:00",
+                    "9": "09:00",
+                    "10": "10:00",
+                    "11": "11:00",
+                    "12": "12:00",
+                    "13": "13:00",
+                    "14": "14:00",
+                    "15": "15:00",
+                    "16": "16:00",
+                    "17": "17:00",
+                    "18": "18:00",
+                    "19": "19:00",
+                    "20": "20:00",
+                    "21": "21:00",
+                    "22": "22:00",
+                    "23": "23:00"
+                }
+            },
+            "defa_power_eco_mode_schedule_wednesday": {
+                "name": "Eco-läge: Onsdag avgångstid",
+                "state": {
+                    "disabled": "Inaktiverad",
+                    "0": "00:00",
+                    "1": "01:00",
+                    "2": "02:00",
+                    "3": "03:00",
+                    "4": "04:00",
+                    "5": "05:00",
+                    "6": "06:00",
+                    "7": "07:00",
+                    "8": "08:00",
+                    "9": "09:00",
+                    "10": "10:00",
+                    "11": "11:00",
+                    "12": "12:00",
+                    "13": "13:00",
+                    "14": "14:00",
+                    "15": "15:00",
+                    "16": "16:00",
+                    "17": "17:00",
+                    "18": "18:00",
+                    "19": "19:00",
+                    "20": "20:00",
+                    "21": "21:00",
+                    "22": "22:00",
+                    "23": "23:00"
+                }
+            },
+            "defa_power_eco_mode_schedule_thursday": {
+                "name": "Eco-läge: Torsdag avgångstid",
+                "state": {
+                    "disabled": "Inaktiverad",
+                    "0": "00:00",
+                    "1": "01:00",
+                    "2": "02:00",
+                    "3": "03:00",
+                    "4": "04:00",
+                    "5": "05:00",
+                    "6": "06:00",
+                    "7": "07:00",
+                    "8": "08:00",
+                    "9": "09:00",
+                    "10": "10:00",
+                    "11": "11:00",
+                    "12": "12:00",
+                    "13": "13:00",
+                    "14": "14:00",
+                    "15": "15:00",
+                    "16": "16:00",
+                    "17": "17:00",
+                    "18": "18:00",
+                    "19": "19:00",
+                    "20": "20:00",
+                    "21": "21:00",
+                    "22": "22:00",
+                    "23": "23:00"
+                }
+            },
+            "defa_power_eco_mode_schedule_friday": {
+                "name": "Eco-läge: Fredag avgångstid",
+                "state": {
+                    "disabled": "Inaktiverad",
+                    "0": "00:00",
+                    "1": "01:00",
+                    "2": "02:00",
+                    "3": "03:00",
+                    "4": "04:00",
+                    "5": "05:00",
+                    "6": "06:00",
+                    "7": "07:00",
+                    "8": "08:00",
+                    "9": "09:00",
+                    "10": "10:00",
+                    "11": "11:00",
+                    "12": "12:00",
+                    "13": "13:00",
+                    "14": "14:00",
+                    "15": "15:00",
+                    "16": "16:00",
+                    "17": "17:00",
+                    "18": "18:00",
+                    "19": "19:00",
+                    "20": "20:00",
+                    "21": "21:00",
+                    "22": "22:00",
+                    "23": "23:00"
+                }
+            },
+            "defa_power_eco_mode_schedule_saturday": {
+                "name": "Eco-läge: Lördag avgångstid",
+                "state": {
+                    "disabled": "Inaktiverad",
+                    "0": "00:00",
+                    "1": "01:00",
+                    "2": "02:00",
+                    "3": "03:00",
+                    "4": "04:00",
+                    "5": "05:00",
+                    "6": "06:00",
+                    "7": "07:00",
+                    "8": "08:00",
+                    "9": "09:00",
+                    "10": "10:00",
+                    "11": "11:00",
+                    "12": "12:00",
+                    "13": "13:00",
+                    "14": "14:00",
+                    "15": "15:00",
+                    "16": "16:00",
+                    "17": "17:00",
+                    "18": "18:00",
+                    "19": "19:00",
+                    "20": "20:00",
+                    "21": "21:00",
+                    "22": "22:00",
+                    "23": "23:00"
+                }
+            },
+            "defa_power_eco_mode_schedule_sunday": {
+                "name": "Eco-läge: Söndag avgångstid",
+                "state": {
+                    "disabled": "Inaktiverad",
+                    "0": "00:00",
+                    "1": "01:00",
+                    "2": "02:00",
+                    "3": "03:00",
+                    "4": "04:00",
+                    "5": "05:00",
+                    "6": "06:00",
+                    "7": "07:00",
+                    "8": "08:00",
+                    "9": "09:00",
+                    "10": "10:00",
+                    "11": "11:00",
+                    "12": "12:00",
+                    "13": "13:00",
+                    "14": "14:00",
+                    "15": "15:00",
+                    "16": "16:00",
+                    "17": "17:00",
+                    "18": "18:00",
+                    "19": "19:00",
+                    "20": "20:00",
+                    "21": "21:00",
+                    "22": "22:00",
+                    "23": "23:00"
+                }
+            }
+        }
+    },
+    "services": {
+        "set_current_limit": {
+            "name": "Ställ in strömgräns",
+            "description": "Ställ in maximal laddningsströmgräns för laddaren.",
+            "fields": {
+                "current_limit": {
+                    "name": "Strömgräns",
+                    "description": "Maximal laddningsström i ampere."
+                }
+            }
+        },
+        "set_eco_mode": {
+            "name": "Ställ in Eco-läge",
+            "description": "Konfigurera inställningar för eco-läge för laddaren.",
+            "fields": {
+                "active": {
+                    "name": "Eco-läge aktivt",
+                    "description": "Aktivera eller inaktivera eco-läge."
+                },
+                "hours_to_charge": {
+                    "name": "Antal laddtimmar",
+                    "description": "Antal timmar att ladda."
+                },
+                "pickup_time_enabled": {
+                    "name": "Avresa",
+                    "description": "Aktivera eller inaktivera avresa."
+                },
+                "pickup_time_mon": {
+                    "name": "Avresa måndag",
+                    "description": "Avresa för måndag (timme)."
+                },
+                "pickup_time_tue": {
+                    "name": "Avresa tisdag",
+                    "description": "Avresa för tisdag (timme)."
+                },
+                "pickup_time_wed": {
+                    "name": "Avresa onsdag",
+                    "description": "Avresa för onsdag (timme)."
+                },
+                "pickup_time_thu": {
+                    "name": "Avresa torsdag",
+                    "description": "Avresa för torsdag (timme)."
+                },
+                "pickup_time_fri": {
+                    "name": "Avresa fredag",
+                    "description": "Avresa för fredag (timme)."
+                },
+                "pickup_time_sat": {
+                    "name": "Avresa lördag",
+                    "description": "Avresa för lördag (timme)."
+                },
+                "pickup_time_sun": {
+                    "name": "Avresa söndag",
+                    "description": "Avresa för söndag (timme)."
+                }
+            }
+        },
+        "start_charging": {
+            "name": "Starta laddning",
+            "description": "Starta laddning."
+        },
+        "stop_charging": {
+            "name": "Stoppa laddning",
+            "description": "Stoppa laddning."
+        },
+        "reset_charger": {
+            "name": "Återställ laddare",
+            "description": "Återställ laddaren med en specificerad återställningstyp.",
+            "fields": {
+                "type": {
+                    "name": "Återställningstyp",
+                    "description": "Typ av återställning att utföra (mjuk eller hård)."
+                }
+            }
+        }
     }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Välj åtgärd",
-        "data": {
-          "select_step": "Välj åtgärd"
-        }
-      },
-      "show_token": {
-        "title": "Nuvarande användar-id och token",
-        "description": "Användar-id och token kan inte redigeras här. Använd \"Konfigurera om\" för att ändra dem.",
-        "data": {
-          "user_id": "Användar-id",
-          "token": "Token"
-        }
-      }
-    }
-  },
-  "selector": {
-    "login_method": {
-      "options": {
-        "phone_number": "Använd telefonnummer",
-        "manual": "Ange användar-id och token manuellt"
-      }
-    },
-    "dev_token_options": {
-      "options": {
-        "cloud_charge": "Cloud Charge",
-        "defa_power": "DEFA Power",
-        "custom": "Anpassad utvecklartoken (ange nedan)"
-      }
-    },
-    "select_step": {
-      "options": {
-        "show_current_token": "Visa nuvarande token"
-      }
-    }
-  },
-  "entity": {
-    "sensor": {
-      "defa_power_currency_code": {
-        "name": "Valutakod",
-        "state": {
-          "cad": "Kanadensiska dollar",
-          "chf": "Schweiziska franc",
-          "czk": "Tjeckiska koruna",
-          "dkk": "Danska kronor",
-          "eur": "Euro",
-          "gbp": "Brittiska pund",
-          "huf": "Ungerska forint",
-          "hrk": "Kroatiska kuna",
-          "ils": "Israeliska shekel",
-          "isk": "Isländska kronor",
-          "mtl": "Maltesiska lira",
-          "skk": "Slovakiska koruna",
-          "nok": "Norska kronor",
-          "sit": "Slovenska tolar",
-          "pln": "Polska zloty",
-          "ron": "Rumänska leu",
-          "rol": "Rumänska leu (gammal)",
-          "sek": "Svenska kronor",
-          "usd": "Amerikanska dollar",
-          "xof": "Västafrikanska CFA-franc"
-        }
-      },
-      "defa_power_meter_value": {
-        "name": "Total energiförbrukning"
-      },
-      "defa_power_transaction_meter_value": {
-        "name": "Energiförbrukning (nuvarande laddning)"
-      },
-      "defa_power_power_consumption": {
-        "name": "Laddningseffekt"
-      },
-      "defa_power_charging_state": {
-        "name": "Laddningstillstånd",
-        "state": {
-          "ev_connected": "Elbil ansluten",
-          "charging": "Laddar",
-          "suspended_ev": "Pausad av elbil",
-          "suspended_evse": "Pausad av laddstation",
-          "idle": "Inaktiv",
-          "unrecognized": "Oigenkänd"
-        }
-      },
-      "defa_power_status": {
-        "name": "Status",
-        "state": {
-          "available": "Tillgänglig",
-          "occupied": "Upptagen",
-          "preparing": "Förbereder",
-          "charging": "Laddar",
-          "suspended_ev": "Pausad av elbil",
-          "suspended_evse": "Pausad av laddstation",
-          "finishing": "Avslutar",
-          "faulted": "Fel",
-          "unavailable": "Otillgänglig",
-          "reserved": "Reserverad",
-          "restarting": "Startar om",
-          "facility_finishing": "Anläggning avslutar",
-          "idle": "Inaktiv",
-          "ev_connected": "Elbil ansluten"
-        }
-      },
-      "defa_power_power": {
-        "name": "Max laddningseffekt"
-      },
-      "defa_power_firmware_version": {
-        "name": "Firmware-version"
-      }
-    },
-    "button": {
-      "defa_power_start_charging": {
-        "name": "Starta laddning"
-      },
-      "defa_power_stop_charging": {
-        "name": "Stoppa laddning"
-      },
-      "defa_power_restart": {
-        "name": "Starta om laddare"
-      }
-    },
-    "number": {
-      "defa_power_ampere": {
-        "name": "Strömgräns"
-      }
-    },
-    "select": {
-      "defa_power_eco_mode_schedule_monday": {
-        "name": "Eco-läge: Måndag avgångstid",
-        "state": {
-          "disabled": "Inaktiverad",
-          "0": "00:00",
-          "1": "01:00",
-          "2": "02:00",
-          "3": "03:00",
-          "4": "04:00",
-          "5": "05:00",
-          "6": "06:00",
-          "7": "07:00",
-          "8": "08:00",
-          "9": "09:00",
-          "10": "10:00",
-          "11": "11:00",
-          "12": "12:00",
-          "13": "13:00",
-          "14": "14:00",
-          "15": "15:00",
-          "16": "16:00",
-          "17": "17:00",
-          "18": "18:00",
-          "19": "19:00",
-          "20": "20:00",
-          "21": "21:00",
-          "22": "22:00",
-          "23": "23:00"
-        }
-      },
-      "defa_power_eco_mode_schedule_tuesday": {
-        "name": "Eco-läge: Tisdag avgångstid",
-        "state": {
-          "disabled": "Inaktiverad",
-          "0": "00:00",
-          "1": "01:00",
-          "2": "02:00",
-          "3": "03:00",
-          "4": "04:00",
-          "5": "05:00",
-          "6": "06:00",
-          "7": "07:00",
-          "8": "08:00",
-          "9": "09:00",
-          "10": "10:00",
-          "11": "11:00",
-          "12": "12:00",
-          "13": "13:00",
-          "14": "14:00",
-          "15": "15:00",
-          "16": "16:00",
-          "17": "17:00",
-          "18": "18:00",
-          "19": "19:00",
-          "20": "20:00",
-          "21": "21:00",
-          "22": "22:00",
-          "23": "23:00"
-        }
-      },
-      "defa_power_eco_mode_schedule_wednesday": {
-        "name": "Eco-läge: Onsdag avgångstid",
-        "state": {
-          "disabled": "Inaktiverad",
-          "0": "00:00",
-          "1": "01:00",
-          "2": "02:00",
-          "3": "03:00",
-          "4": "04:00",
-          "5": "05:00",
-          "6": "06:00",
-          "7": "07:00",
-          "8": "08:00",
-          "9": "09:00",
-          "10": "10:00",
-          "11": "11:00",
-          "12": "12:00",
-          "13": "13:00",
-          "14": "14:00",
-          "15": "15:00",
-          "16": "16:00",
-          "17": "17:00",
-          "18": "18:00",
-          "19": "19:00",
-          "20": "20:00",
-          "21": "21:00",
-          "22": "22:00",
-          "23": "23:00"
-        }
-      },
-      "defa_power_eco_mode_schedule_thursday": {
-        "name": "Eco-läge: Torsdag avgångstid",
-        "state": {
-          "disabled": "Inaktiverad",
-          "0": "00:00",
-          "1": "01:00",
-          "2": "02:00",
-          "3": "03:00",
-          "4": "04:00",
-          "5": "05:00",
-          "6": "06:00",
-          "7": "07:00",
-          "8": "08:00",
-          "9": "09:00",
-          "10": "10:00",
-          "11": "11:00",
-          "12": "12:00",
-          "13": "13:00",
-          "14": "14:00",
-          "15": "15:00",
-          "16": "16:00",
-          "17": "17:00",
-          "18": "18:00",
-          "19": "19:00",
-          "20": "20:00",
-          "21": "21:00",
-          "22": "22:00",
-          "23": "23:00"
-        }
-      },
-      "defa_power_eco_mode_schedule_friday": {
-        "name": "Eco-läge: Fredag avgångstid",
-        "state": {
-          "disabled": "Inaktiverad",
-          "0": "00:00",
-          "1": "01:00",
-          "2": "02:00",
-          "3": "03:00",
-          "4": "04:00",
-          "5": "05:00",
-          "6": "06:00",
-          "7": "07:00",
-          "8": "08:00",
-          "9": "09:00",
-          "10": "10:00",
-          "11": "11:00",
-          "12": "12:00",
-          "13": "13:00",
-          "14": "14:00",
-          "15": "15:00",
-          "16": "16:00",
-          "17": "17:00",
-          "18": "18:00",
-          "19": "19:00",
-          "20": "20:00",
-          "21": "21:00",
-          "22": "22:00",
-          "23": "23:00"
-        }
-      },
-      "defa_power_eco_mode_schedule_saturday": {
-        "name": "Eco-läge: Lördag avgångstid",
-        "state": {
-          "disabled": "Inaktiverad",
-          "0": "00:00",
-          "1": "01:00",
-          "2": "02:00",
-          "3": "03:00",
-          "4": "04:00",
-          "5": "05:00",
-          "6": "06:00",
-          "7": "07:00",
-          "8": "08:00",
-          "9": "09:00",
-          "10": "10:00",
-          "11": "11:00",
-          "12": "12:00",
-          "13": "13:00",
-          "14": "14:00",
-          "15": "15:00",
-          "16": "16:00",
-          "17": "17:00",
-          "18": "18:00",
-          "19": "19:00",
-          "20": "20:00",
-          "21": "21:00",
-          "22": "22:00",
-          "23": "23:00"
-        }
-      },
-      "defa_power_eco_mode_schedule_sunday": {
-        "name": "Eco-läge: Söndag avgångstid",
-        "state": {
-          "disabled": "Inaktiverad",
-          "0": "00:00",
-          "1": "01:00",
-          "2": "02:00",
-          "3": "03:00",
-          "4": "04:00",
-          "5": "05:00",
-          "6": "06:00",
-          "7": "07:00",
-          "8": "08:00",
-          "9": "09:00",
-          "10": "10:00",
-          "11": "11:00",
-          "12": "12:00",
-          "13": "13:00",
-          "14": "14:00",
-          "15": "15:00",
-          "16": "16:00",
-          "17": "17:00",
-          "18": "18:00",
-          "19": "19:00",
-          "20": "20:00",
-          "21": "21:00",
-          "22": "22:00",
-          "23": "23:00"
-        }
-      }
-    }
-  },
-  "services": {
-    "set_current_limit": {
-      "name": "Ställ in strömgräns",
-      "description": "Ställ in maximal laddningsströmgräns för laddaren.",
-      "fields": {
-        "current_limit": {
-          "name": "Strömgräns",
-          "description": "Maximal laddningsström i ampere."
-        }
-      }
-    },
-    "set_eco_mode": {
-      "name": "Ställ in Eco-läge",
-      "description": "Konfigurera inställningar för eco-läge för laddaren.",
-      "fields": {
-        "active": {
-          "name": "Eco-läge aktivt",
-          "description": "Aktivera eller inaktivera eco-läge."
-        },
-        "hours_to_charge": {
-          "name": "Antal laddtimmar",
-          "description": "Antal timmar att ladda."
-        },
-        "pickup_time_enabled": {
-          "name": "Avresa",
-          "description": "Aktivera eller inaktivera avresa."
-        },
-        "pickup_time_mon": {
-          "name": "Avresa måndag",
-          "description": "Avresa för måndag (timme)."
-        },
-        "pickup_time_tue": {
-          "name": "Avresa tisdag",
-          "description": "Avresa för tisdag (timme)."
-        },
-        "pickup_time_wed": {
-          "name": "Avresa onsdag",
-          "description": "Avresa för onsdag (timme)."
-        },
-        "pickup_time_thu": {
-          "name": "Avresa torsdag",
-          "description": "Avresa för torsdag (timme)."
-        },
-        "pickup_time_fri": {
-          "name": "Avresa fredag",
-          "description": "Avresa för fredag (timme)."
-        },
-        "pickup_time_sat": {
-          "name": "Avresa lördag",
-          "description": "Avresa för lördag (timme)."
-        },
-        "pickup_time_sun": {
-          "name": "Avresa söndag",
-          "description": "Avresa för söndag (timme)."
-        }
-      }
-    },
-    "start_charging": {
-      "name": "Starta laddning",
-      "description": "Starta laddning."
-    },
-    "stop_charging": {
-      "name": "Stoppa laddning",
-      "description": "Stoppa laddning."
-    },
-    "reset_charger": {
-      "name": "Återställ laddare",
-      "description": "Återställ laddaren med en specificerad återställningstyp.",
-      "fields": {
-        "type": {
-          "name": "Återställningstyp",
-          "description": "Typ av återställning att utföra (mjuk eller hård)."
-        }
-      }
-    }
-  }
 }

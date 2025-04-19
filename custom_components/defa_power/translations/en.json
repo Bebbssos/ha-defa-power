@@ -179,6 +179,9 @@
     "number": {
       "defa_power_ampere": {
         "name": "Current limit"
+      },
+      "defa_power_hours_to_charge": {
+        "name": "Eco mode: Hours to charge"
       }
     },
     "select": {
