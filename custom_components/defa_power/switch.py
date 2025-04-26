@@ -11,7 +11,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DefaPowerConfigEntry
 from .cloudcharge_api.client import CloudChargeAPIClient
-from .cloudcharge_api.models import EcoModeConfiguration, EcoModeConfigurationRequest
+from .cloudcharge_api.models import EcoModeConfiguration
 from .coordinator import CloudChargeEcoModeCoordinator
 from .devices import ConnectorDevice
 
@@ -24,7 +24,7 @@ class DefaPowerEcoModeSwitchDescription(SwitchEntityDescription):
 
     disabled_by_default: bool = False
     value_fn: Callable[[EcoModeConfiguration], bool] | None = None
-    set_fn: Callable[[str, CloudChargeAPIClient, bool], None] | None = None
+    set_fn: Callable[[EcoModeConfiguration, bool], None] | None = None
 
 
 async def async_setup_entry(
@@ -53,42 +53,14 @@ async def async_setup_entry(
     async_add_entities(entities, update_before_add=True)
 
 
-async def set_eco_mode_active(
-    connector_id: str, client: CloudChargeAPIClient, active: bool
-) -> None:
+def set_eco_mode_active(config: EcoModeConfiguration, active: bool) -> None:
     """Set the eco mode active state for a given connector."""
-    # First, get the existing eco mode configuration
-    eco_mode_config = await client.async_get_eco_mode_configuration(connector_id)
-
-    # Create the update request with the new active value
-    request: EcoModeConfigurationRequest = {
-        "active": active,
-        "hoursToCharge": eco_mode_config["hoursToCharge"],
-        "pickupTimeEnabled": eco_mode_config["pickupTimeEnabled"],
-        "dayOfWeekMap": eco_mode_config["dayOfWeekMap"],
-    }
-
-    # Send the updated configuration
-    await client.async_set_eco_mode_configuration(connector_id, request)
+    config["active"] = active
 
 
-async def set_pickup_time_enabled(
-    connector_id: str, client: CloudChargeAPIClient, enabled: bool
-) -> None:
+def set_pickup_time_enabled(config: EcoModeConfiguration, enabled: bool) -> None:
     """Set the pickup time enabled state for a given connector."""
-    # First, get the existing eco mode configuration
-    eco_mode_config = await client.async_get_eco_mode_configuration(connector_id)
-
-    # Create the update request with the new pickup time enabled value
-    request: EcoModeConfigurationRequest = {
-        "active": eco_mode_config["active"],
-        "hoursToCharge": eco_mode_config["hoursToCharge"],
-        "pickupTimeEnabled": enabled,
-        "dayOfWeekMap": eco_mode_config["dayOfWeekMap"],
-    }
-
-    # Send the updated configuration
-    await client.async_set_eco_mode_configuration(connector_id, request)
+    config["pickupTimeEnabled"] = enabled
 
 
 ECO_MODE_SWITCH_TYPES = (
@@ -145,10 +117,11 @@ class EcoModeSwitchEntity(CoordinatorEntity, SwitchEntity):
 
     def _set_state(self) -> bool:
         """Update the state from coordinator. Return True if the state has changed."""
-        if self.coordinator.data is None:
+        data = self.coordinator.get_data()
+        if data is None:
             return False
 
-        new_state = self.entity_description.value_fn(self.coordinator.data)
+        new_state = self.entity_description.value_fn(data)
 
         if new_state != self.state_val:
             self.state_val = new_state
@@ -169,10 +142,12 @@ class EcoModeSwitchEntity(CoordinatorEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
-        await self.entity_description.set_fn(self.connector_id, self.client, True)
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.set_data(
+            lambda config: self.entity_description.set_fn(config, True)
+        )
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
-        await self.entity_description.set_fn(self.connector_id, self.client, False)
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.set_data(
+            lambda config: self.entity_description.set_fn(config, False)
+        )

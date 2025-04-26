@@ -16,11 +16,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DefaPowerConfigEntry
 from .cloudcharge_api.client import CloudChargeAPIClient
-from .cloudcharge_api.models import (
-    Connector,
-    EcoModeConfiguration,
-    EcoModeConfigurationRequest,
-)
+from .cloudcharge_api.models import Connector, EcoModeConfiguration
 from .coordinator import CloudChargeEcoModeCoordinator
 from .devices import ConnectorDevice
 
@@ -210,7 +206,7 @@ class DefaConnectorNumberEntity(CoordinatorEntity, NumberEntity):
         """Set new value."""
         try:
             await self.entity_description.set_fn(self.id, self.client, int(value))
-            await self.coordinator.async_request_refresh()
+            await self.coordinator.async_refresh()
         except Exception as e:
             _LOGGER.error(
                 "Failed to set maximum current to %s for %s: %s", value, self.id, str(e)
@@ -234,26 +230,12 @@ class DefaPowerEcoModeNumberDescription(NumberEntityDescription):
 
     disabled_by_default: bool = False
     value_fn: Callable[[EcoModeConfiguration], int] | None = None
-    set_fn: Callable[[str, CloudChargeAPIClient, int], None] | None = None
+    set_fn: Callable[[EcoModeConfiguration, int], None] | None = None
 
 
-async def set_hours_to_charge(
-    connector_id: str, client: CloudChargeAPIClient, hours: int
-) -> None:
+def set_hours_to_charge(config: EcoModeConfiguration, hours: int) -> None:
     """Set the hours to charge for eco mode in the CloudChargeAPIClient."""
-    # First, get the existing eco mode configuration
-    eco_mode_config = await client.async_get_eco_mode_configuration(connector_id)
-
-    # Create the update request with the new hours to charge value
-    request: EcoModeConfigurationRequest = {
-        "active": eco_mode_config["active"],
-        "hoursToCharge": hours,
-        "pickupTimeEnabled": eco_mode_config["pickupTimeEnabled"],
-        "dayOfWeekMap": eco_mode_config["dayOfWeekMap"],
-    }
-
-    # Send the updated configuration
-    await client.async_set_eco_mode_configuration(connector_id, request)
+    config["hoursToCharge"] = hours
 
 
 ECO_MODE_NUMBER_TYPES: tuple[DefaPowerEcoModeNumberDescription, ...] = (
@@ -310,10 +292,12 @@ class EcoModeNumberEntity(CoordinatorEntity, NumberEntity):
 
     def _set_state(self):
         """Update the state from coordinator. Return True if the state has changed."""
-        if self.coordinator.data is None:
+        data = self.coordinator.get_data()
+
+        if data is None:
             return False
 
-        new_state = self.entity_description.value_fn(self.coordinator.data)
+        new_state = self.entity_description.value_fn(data)
 
         if new_state != self.state_val:
             self.state_val = new_state
@@ -330,10 +314,9 @@ class EcoModeNumberEntity(CoordinatorEntity, NumberEntity):
     async def async_set_native_value(self, value: float) -> None:
         """Set new value."""
         try:
-            await self.entity_description.set_fn(
-                self.connector_id, self.client, int(value)
+            await self.coordinator.set_data(
+                lambda config: self.entity_description.set_fn(config, value)
             )
-            await self.coordinator.async_request_refresh()
         except Exception as e:
             _LOGGER.error(
                 "Failed to set hours to charge to %s for %s: %s",

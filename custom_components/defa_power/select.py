@@ -8,7 +8,6 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DefaPowerConfigEntry
 from .cloudcharge_api.client import CloudChargeAPIClient
-from .cloudcharge_api.models import EcoModeConfiguration, EcoModeConfigurationRequest
 from .coordinator import CloudChargeEcoModeCoordinator
 from .devices import ConnectorDevice
 
@@ -25,23 +24,6 @@ async def async_setup_entry(
 
     for connector_id, val in entry.runtime_data["connectors"].items():
         eco_mode_coordinator = val["eco_mode_coordinator"]
-        # entities.extend(
-        #     ChargeStartStopButton(
-        #         connector_id,
-        #         val["alias"],
-        #         sensorType,
-        #         val["device"],
-        #         entry.runtime_data["client"],
-        #         instance_id,
-        #         operational_data_coordinator,
-        #     )
-        #     for sensorType in DEFA_POWER_CONNECTOR_SENSOR_TYPES
-        # )
-        # entities.append(
-        #     ChargerRestartButton(
-        #         connector_id, val["device"], entry.runtime_data["client"], instance_id
-        #     )
-        # )
         entities.extend(
             EcoModeWeekDayScheduleSelect(
                 connector_id,
@@ -102,12 +84,12 @@ class EcoModeWeekDayScheduleSelect(CoordinatorEntity, SelectEntity):
 
     def _set_state(self):
         """Update the state from coordinator. Return True if the state has changed."""
-        if self.coordinator.data is None:
+        data = self.coordinator.get_data()
+
+        if data is None:
             return False
 
-        new_state = self.coordinator.data.get("dayOfWeekMap", {}).get(
-            self._weekday_upper
-        )
+        new_state = data.get("dayOfWeekMap", {}).get(self._weekday_upper)
 
         if new_state is None:
             mapped_state = "disabled"
@@ -168,17 +150,8 @@ class EcoModeWeekDayScheduleSelect(CoordinatorEntity, SelectEntity):
         else:
             new_state = int(option)
 
-        current_data: EcoModeConfiguration = self.coordinator.data
-
-        request: EcoModeConfigurationRequest = {
-            "active": current_data["active"],
-            "hoursToCharge": current_data["hoursToCharge"],
-            "pickupTimeEnabled": current_data["pickupTimeEnabled"],
-            "dayOfWeekMap": {
-                **current_data["dayOfWeekMap"],
-                self._weekday_upper: new_state,
-            },
-        }
-
-        await self.client.async_set_eco_mode_configuration(self.connector_id, request)
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.set_data(
+            lambda config: config["dayOfWeekMap"].update(
+                {self._weekday_upper: new_state}
+            )
+        )
