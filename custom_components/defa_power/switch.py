@@ -35,20 +35,21 @@ async def async_setup_entry(
     entities = []
 
     for connector_id, val in entry.runtime_data["connectors"].items():
-        eco_mode_coordinator = val["eco_mode_coordinator"]
+        if val["capabilities"]["ecoMode"]:
+            # Add eco mode switches if eco mode is supported by the connector
+            eco_mode_coordinator = val["eco_mode_coordinator"]
 
-        # Add eco mode switches
-        entities.extend(
-            EcoModeSwitchEntity(
-                connector_id,
-                eco_mode_coordinator,
-                description,
-                val["device"],
-                entry.runtime_data["client"],
-                instance_id,
+            entities.extend(
+                EcoModeSwitchEntity(
+                    connector_id,
+                    eco_mode_coordinator,
+                    description,
+                    val["device"],
+                    entry.runtime_data["client"],
+                    instance_id,
+                )
+                for description in ECO_MODE_SWITCH_TYPES
             )
-            for description in ECO_MODE_SWITCH_TYPES
-        )
 
     async_add_entities(entities, update_before_add=True)
 

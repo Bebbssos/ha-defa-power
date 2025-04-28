@@ -20,6 +20,12 @@ class RuntimeDataChargePoint(TypedDict):
     coordinator: CloudChargeChargepointCoordinator
 
 
+class RuntimeDataConnectorCapabilities(TypedDict):
+    """Capabilities of a connector."""
+
+    ecoMode: bool
+
+
 class RuntimeDataConnector(TypedDict):
     """Runtime data for a connector."""
 
@@ -27,6 +33,7 @@ class RuntimeDataConnector(TypedDict):
     alias: str
     operational_data_coordinator: CloudChargeOperationalDataCoordinator
     eco_mode_coordinator: CloudChargeEcoModeCoordinator
+    capabilities: RuntimeDataConnectorCapabilities
     chargepoint_id: str
 
 

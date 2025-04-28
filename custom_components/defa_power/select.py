@@ -23,26 +23,28 @@ async def async_setup_entry(
     entities: list[SelectEntity] = []
 
     for connector_id, val in entry.runtime_data["connectors"].items():
-        eco_mode_coordinator = val["eco_mode_coordinator"]
-        entities.extend(
-            EcoModeWeekDayScheduleSelect(
-                connector_id,
-                eco_mode_coordinator,
-                val["device"],
-                entry.runtime_data["client"],
-                instance_id,
-                weekday,
+        if val["capabilities"]["ecoMode"]:
+            # Add eco mode selects if eco mode is supported by the connector
+            eco_mode_coordinator = val["eco_mode_coordinator"]
+            entities.extend(
+                EcoModeWeekDayScheduleSelect(
+                    connector_id,
+                    eco_mode_coordinator,
+                    val["device"],
+                    entry.runtime_data["client"],
+                    instance_id,
+                    weekday,
+                )
+                for weekday in [
+                    "monday",
+                    "tuesday",
+                    "wednesday",
+                    "thursday",
+                    "friday",
+                    "saturday",
+                    "sunday",
+                ]
             )
-            for weekday in [
-                "monday",
-                "tuesday",
-                "wednesday",
-                "thursday",
-                "friday",
-                "saturday",
-                "sunday",
-            ]
-        )
 
     async_add_entities(entities, update_before_add=True)
 

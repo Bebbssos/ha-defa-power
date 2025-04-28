@@ -120,10 +120,10 @@ async def async_setup_entry(
                 )
             )
 
-        # Add eco mode number entities
-        eco_mode_coordinator = val["eco_mode_coordinator"]
-        for description in ECO_MODE_NUMBER_TYPES:
-            entities.append(
+        if val["capabilities"]["ecoMode"]:
+            # Add eco mode number entities if eco mode is supported by the connector
+            eco_mode_coordinator = val["eco_mode_coordinator"]
+            entities.extend(
                 EcoModeNumberEntity(
                     connector_id,
                     eco_mode_coordinator,
@@ -132,6 +132,7 @@ async def async_setup_entry(
                     client,
                     instance_id,
                 )
+                for description in ECO_MODE_NUMBER_TYPES
             )
 
     async_add_entities(entities, update_before_add=True)
@@ -243,7 +244,7 @@ ECO_MODE_NUMBER_TYPES: tuple[DefaPowerEcoModeNumberDescription, ...] = (
         key="hours_to_charge",
         icon="mdi:timer-outline",
         native_min_value=1,
-        native_max_value=24,
+        native_max_value=23,
         native_unit_of_measurement=UnitOfTime.HOURS,
         value_fn=lambda data: data.get("hoursToCharge", 1),
         set_fn=set_hours_to_charge,
