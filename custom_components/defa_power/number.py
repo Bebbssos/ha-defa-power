@@ -9,14 +9,15 @@ from homeassistant.components.number import (
     NumberEntity,
     NumberEntityDescription,
 )
-from homeassistant.const import UnitOfElectricCurrent
+from homeassistant.const import UnitOfElectricCurrent, UnitOfTime
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DefaPowerConfigEntry
 from .cloudcharge_api.client import CloudChargeAPIClient
-from .cloudcharge_api.models import Connector
+from .cloudcharge_api.models import Connector, EcoModeConfiguration
+from .coordinator import CloudChargeEcoModeCoordinator
 from .devices import ConnectorDevice
 
 _LOGGER = logging.getLogger(__name__)
@@ -86,7 +87,9 @@ async def async_setup_entry(
 
     client = entry.runtime_data["client"]
 
+    # Set up regular DEFA Power connector number entities
     for connector_id, val in entry.runtime_data["connectors"].items():
+        # Add standard number entities (current limit)
         for description in DEFA_POWER_CONNECTOR_NUMBER_TYPES:
             description_dict = description.__dict__.copy()
 
@@ -115,6 +118,21 @@ async def async_setup_entry(
                     client,
                     instance_id,
                 )
+            )
+
+        if val["capabilities"]["ecoMode"]:
+            # Add eco mode number entities if eco mode is supported by the connector
+            eco_mode_coordinator = val["eco_mode_coordinator"]
+            entities.extend(
+                EcoModeNumberEntity(
+                    connector_id,
+                    eco_mode_coordinator,
+                    description,
+                    val["device"],
+                    client,
+                    instance_id,
+                )
+                for description in ECO_MODE_NUMBER_TYPES
             )
 
     async_add_entities(entities, update_before_add=True)
@@ -189,7 +207,7 @@ class DefaConnectorNumberEntity(CoordinatorEntity, NumberEntity):
         """Set new value."""
         try:
             await self.entity_description.set_fn(self.id, self.client, int(value))
-            await self.coordinator.async_request_refresh()
+            await self.coordinator.async_refresh()
         except Exception as e:
             _LOGGER.error(
                 "Failed to set maximum current to %s for %s: %s", value, self.id, str(e)
@@ -205,3 +223,111 @@ class DefaConnectorNumberEntity(CoordinatorEntity, NumberEntity):
     def options(self) -> list[str] | None:
         """Return the option of the sensor."""
         return self.entity_description.options
+
+
+@dataclass(kw_only=True)
+class DefaPowerEcoModeNumberDescription(NumberEntityDescription):
+    """Class to describe a DEFA Power eco mode number entity."""
+
+    disabled_by_default: bool = False
+    value_fn: Callable[[EcoModeConfiguration], int] | None = None
+    set_fn: Callable[[EcoModeConfiguration, int], None] | None = None
+
+
+def set_hours_to_charge(config: EcoModeConfiguration, hours: int) -> None:
+    """Set the hours to charge for eco mode in the CloudChargeAPIClient."""
+    config["hoursToCharge"] = hours
+
+
+ECO_MODE_NUMBER_TYPES: tuple[DefaPowerEcoModeNumberDescription, ...] = (
+    DefaPowerEcoModeNumberDescription(
+        key="hours_to_charge",
+        icon="mdi:timer-outline",
+        native_min_value=1,
+        native_max_value=23,
+        native_unit_of_measurement=UnitOfTime.HOURS,
+        value_fn=lambda data: data.get("hoursToCharge", 1),
+        set_fn=set_hours_to_charge,
+        native_step=1,
+    ),
+)
+
+
+class EcoModeNumberEntity(CoordinatorEntity, NumberEntity):
+    """Number entity for controlling eco mode settings."""
+
+    _attr_has_entity_name = True
+    state_val = None
+
+    def __init__(
+        self,
+        connector_id: str,
+        coordinator: CloudChargeEcoModeCoordinator,
+        description: DefaPowerEcoModeNumberDescription,
+        device: ConnectorDevice,
+        client: CloudChargeAPIClient,
+        instance_id: str,
+    ) -> None:
+        """Initialize the eco mode number entity."""
+        super().__init__(coordinator, description.key)
+        self.coordinator = coordinator
+        self.entity_description = description
+        self._attr_unique_id = f"{instance_id}_{connector_id}_{description.key}"
+        self._attr_translation_key = f"defa_power_{description.key}"
+        self._attr_native_unit_of_measurement = description.native_unit_of_measurement
+        self._attr_unit_of_measurement = description.native_unit_of_measurement
+        self._attr_icon = description.icon
+
+        if description.disabled_by_default:
+            self._attr_entity_registry_enabled_default = False
+
+        self.connector_id = connector_id
+        self.client = client
+        self._attr_device_info = device.get_device_info()
+        self._set_state()
+
+    @property
+    def available(self):
+        """Return True if entity is available."""
+        return self.coordinator.last_update_success
+
+    def _set_state(self):
+        """Update the state from coordinator. Return True if the state has changed."""
+        data = self.coordinator.get_data()
+
+        if data is None:
+            return False
+
+        new_state = self.entity_description.value_fn(data)
+
+        if new_state != self.state_val:
+            self.state_val = new_state
+            return True
+
+        return False
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        if self._set_state():
+            self.async_write_ha_state()
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Set new value."""
+        try:
+            await self.coordinator.set_data(
+                lambda config: self.entity_description.set_fn(config, value)
+            )
+        except Exception as e:
+            _LOGGER.error(
+                "Failed to set hours to charge to %s for %s: %s",
+                value,
+                self.connector_id,
+                str(e),
+            )
+            raise HomeAssistantError("Failed to set hours to charge") from e
+
+    @property
+    def state(self):
+        """Return the state of the entity."""
+        return self.state_val

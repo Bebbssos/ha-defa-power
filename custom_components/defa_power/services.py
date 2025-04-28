@@ -108,10 +108,10 @@ async def async_setup_services(hass: HomeAssistant):
         }
 
         for connector_id, runtime_data in device_data_generator(hass, call):
-            await runtime_data["client"].async_set_eco_mode_configuration(
-                connector_id, config
-            )
-            # TODO: Refresh coordinator
+            coordinator = runtime_data["connectors"][connector_id][
+                "eco_mode_coordinator"
+            ]
+            await coordinator.set_data(lambda data: data.update(config))
 
     async def handle_start_charging(call: ServiceCall):
         """Handle starting charging."""

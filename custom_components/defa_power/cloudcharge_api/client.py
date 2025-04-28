@@ -125,7 +125,7 @@ class CloudChargeAPIClient:
         if response.status == 400:
             try:
                 message = await response.text()
-            except:  # noqa: E722
+            except Exception:
                 message = ""
 
             raise CloudChargeBadRequestError(message)
@@ -133,7 +133,7 @@ class CloudChargeAPIClient:
         if response.status == 403:
             try:
                 message = await response.text()
-            except:  # noqa: E722
+            except Exception:
                 message = ""
 
             raise CloudChargeForbiddenError(message)
