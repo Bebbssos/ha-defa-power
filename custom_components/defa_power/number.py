@@ -70,7 +70,7 @@ DEFA_POWER_CONNECTOR_NUMBER_TYPES: tuple[DefaPowerConnectorNumberDescription, ..
         native_max_value=32,  # Default value
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         device_class=NumberDeviceClass.CURRENT,
-        value_fn=lambda data: data.get("ampere"),
+        value_fn=lambda data: data.get("maxProfileCurrent"),
         set_fn=set_max_current,
         get_limits_fn=fetch_min_max_values,
     ),
