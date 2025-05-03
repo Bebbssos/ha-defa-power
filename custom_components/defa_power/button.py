@@ -55,14 +55,14 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: tuple[
         key="start_charging",
         icon="mdi:flash",
         on_press=start_charging,
-        available_on_states=["EVConnected"],
+        available_on_states=["EVConnected", None],
         refresh_coordinator_wait=5,  # Start charging takes a while to update, waiting 5 seconds should be enough
     ),
     DefaPowerChargeStartStopButtonDescription(
         key="stop_charging",
         icon="mdi:flash-off",
         on_press=stop_charging,
-        available_on_states=["Charging", "SuspendedEV"],
+        available_on_states=["Charging", "SuspendedEV", None],
         refresh_coordinator_wait=1,  # Stop charging is faster, waiting 1 second should be enough
     ),
 )

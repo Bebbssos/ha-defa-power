@@ -96,6 +96,7 @@ class DefaPowerSensorDescription(Generic[T], SensorEntityDescription):
     disabled_by_default: bool = False
     options: list[str] | None = None
     value_fn: Callable[[T], Any] | None = None
+    create_if_none: bool = False
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -201,25 +202,51 @@ async def async_setup_entry(
     entities: list[SensorEntity] = []
 
     for chargepoint_id, val in entry.runtime_data["chargepoints"].items():
-        entities.extend(
-            DefaChargePointEntity(
-                chargepoint_id,
-                val["coordinator"],
-                sensorType,
-                val["device"],
-                instance_id,
+        for sensor_type in DEFA_POWER_CHARGEPOINT_SENSOR_TYPES:
+            current_value = sensor_type.value_fn(
+                val["coordinator"].data.get("chargepoint", {})
             )
-            for sensorType in DEFA_POWER_CHARGEPOINT_SENSOR_TYPES
-        )
+
+            if sensor_type.create_if_none is False and current_value is None:
+                _LOGGER.debug(
+                    "Skipping entity %s for chargepoint %s, value is None or missing",
+                    sensor_type.key,
+                    chargepoint_id,
+                )
+                val["skipped_entities"].append(sensor_type.key)
+                continue
+
+            entities.append(
+                DefaChargePointEntity(
+                    chargepoint_id,
+                    val["coordinator"],
+                    sensor_type,
+                    val["device"],
+                    instance_id,
+                )
+            )
 
     for connector_id, val in entry.runtime_data["connectors"].items():
         for sensor_type in DEFA_POWER_CONNECTOR_SENSOR_TYPES:
             if sensor_type.coordinator == Coordinator.OPERATIONAL_DATA:
                 coordinator = val["operational_data_coordinator"]
+                current_value = sensor_type.value_fn(coordinator.data)
             else:
                 chargepoint_id = val["chargepoint_id"]
                 chargepoint_data = entry.runtime_data["chargepoints"][chargepoint_id]
                 coordinator = chargepoint_data["coordinator"]
+                current_value = sensor_type.value_fn(
+                    coordinator.data.get("connectors", {}).get(val["alias"], {})
+                )
+
+            if sensor_type.create_if_none is False and current_value is None:
+                _LOGGER.debug(
+                    "Skipping entity %s for connector %s, value is None or missing",
+                    sensor_type.key,
+                    connector_id,
+                )
+                val["skipped_entities"].append(sensor_type.key)
+                continue
 
             entities.append(
                 DefaConnectorEntity(
