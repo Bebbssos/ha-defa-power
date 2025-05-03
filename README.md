@@ -17,10 +17,8 @@ This is a custom integration for Home Assistant that allows you to control and m
 
 1. Ensure that you have [HACS](https://hacs.xyz/) installed in your Home Assistant setup.
 2. Go to HACS in the Home Assistant sidebar.
-3. Click on the three dots in the top right corner and select "Custom repositories".
-4. Add the repository URL `https://github.com/Bebbssos/ha-defa-power` and set the type to "Integration".
-5. Find "DEFA Power" in the list of integrations and click "Download".
-6. Restart Home Assistant.
+3. Search for "DEFA Power" and install it.
+4. Restart Home Assistant.
 
 #### Manual Installation
 
