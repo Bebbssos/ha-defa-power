@@ -73,7 +73,7 @@ After setting up the integration, you can retrieve your user-id and token by fol
 
 The integration provides several actions (services) that can be called from automations, scripts, or the Developer Tools > Services panel in Home Assistant.
 
-> **Important:** When calling any action, you must specify the target device as the specific connector you want to control, not the overall charger.
+> **Important:** When calling any action, you must specify the target device as the specific connector you want to control, not the overall chargepoint.
 
 For complete documentation on available actions, please see [ACTIONS.md](ACTIONS.md).
 
