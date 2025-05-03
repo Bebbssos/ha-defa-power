@@ -52,6 +52,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
 
         c["coordinator"] = coordinator
         c["device"] = ChargePointDevice(chargepoint_data["chargepoint"], instance_id)
+        c["skipped_entities"] = []
 
         for alias, val in chargepoint_data["connectors"].items():
             connector_id = val["id"]
@@ -81,6 +82,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
             c["device"] = ConnectorDevice(val, instance_id, alias)
             c["alias"] = alias
             c["chargepoint_id"] = chargepoint_id
+            c["skipped_entities"] = []
 
             connectors[connector_id] = c
 

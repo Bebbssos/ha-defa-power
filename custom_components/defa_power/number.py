@@ -60,6 +60,7 @@ class DefaPowerConnectorNumberDescription(NumberEntityDescription):
     value_fn: Callable[[Connector], int] | None = None
     set_fn: Callable[[str, CloudChargeAPIClient, int], None] | None = None
     get_limits_fn: Callable[[CloudChargeAPIClient, str], tuple[int, int]] | None = None
+    create_if_none: bool = False
 
 
 DEFA_POWER_CONNECTOR_NUMBER_TYPES: tuple[DefaPowerConnectorNumberDescription, ...] = (
@@ -107,6 +108,19 @@ async def async_setup_entry(
             chargepoint_id = val["chargepoint_id"]
             chargepoint_data = entry.runtime_data["chargepoints"][chargepoint_id]
             coordinator = chargepoint_data["coordinator"]
+
+            current_value = description.value_fn(
+                coordinator.data.get("connectors", {}).get(val["alias"], {})
+            )
+
+            if description.create_if_none is False and current_value is None:
+                _LOGGER.debug(
+                    "Skipping number entity %s for connector %s, value is None or missing",
+                    description.key,
+                    connector_id,
+                )
+                val["skipped_entities"].append(description.key)
+                continue
 
             entities.append(
                 DefaConnectorNumberEntity(
