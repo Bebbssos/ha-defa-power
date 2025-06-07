@@ -116,7 +116,8 @@ async def async_setup_services(hass: HomeAssistant):
     async def handle_start_charging(call: ServiceCall):
         """Handle starting charging."""
         for connector_id, runtime_data in device_data_generator(hass, call):
-            await runtime_data["client"].async_start_charging(connector_id)
+            alias = runtime_data["connectors"][connector_id]["alias"]
+            await runtime_data["client"].async_start_charging(alias)
             await asyncio.sleep(5)
             await runtime_data["connectors"][connector_id][
                 "operational_data_coordinator"
@@ -125,7 +126,8 @@ async def async_setup_services(hass: HomeAssistant):
     async def handle_stop_charging(call: ServiceCall):
         """Handle stopping charging."""
         for connector_id, runtime_data in device_data_generator(hass, call):
-            await runtime_data["client"].async_stop_charging(connector_id)
+            alias = runtime_data["connectors"][connector_id]["alias"]
+            await runtime_data["client"].async_stop_charging(alias)
             await asyncio.sleep(1)
             await runtime_data["connectors"][connector_id][
                 "operational_data_coordinator"
