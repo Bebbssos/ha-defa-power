@@ -110,6 +110,37 @@ class PrivateChargePoint(TypedDict, total=False):
     validTo: str | None
 
 
+# MyChargers types
+class TokenInfo(TypedDict, total=False):
+    """Token information for access."""
+
+    status: str
+    accessId: str
+    chargePointId: Any
+    connectorId: int
+    endTime: str
+    startTime: str
+    role: str
+    givingAccess: str
+    receivingAccess: list[str]
+    metaString: str
+
+
+class ChargePointAccess(TypedDict, total=False):
+    """Charge point access."""
+
+    chargePoint: ChargePoint
+    token: TokenInfo
+
+
+class MyChargers(TypedDict, total=False):
+    """My chargers response."""
+
+    timestamp: str
+    receivingAccess: list[ChargePointAccess]
+    givingAccess: list[ChargePointAccess]
+
+
 # Addidional connector data types
 class OCPPData(TypedDict, total=False):
     """OCPP data."""
