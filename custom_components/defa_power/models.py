@@ -18,6 +18,7 @@ class RuntimeDataChargePoint(TypedDict):
 
     device: ChargePointDevice
     coordinator: CloudChargeChargepointCoordinator
+    skipped_entities: list[str]
 
 
 class RuntimeDataConnectorCapabilities(TypedDict):
@@ -35,6 +36,7 @@ class RuntimeDataConnector(TypedDict):
     eco_mode_coordinator: CloudChargeEcoModeCoordinator
     capabilities: RuntimeDataConnectorCapabilities
     chargepoint_id: str
+    skipped_entities: list[str]
 
 
 class RuntimeData(TypedDict):
