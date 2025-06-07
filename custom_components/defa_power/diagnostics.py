@@ -1,4 +1,4 @@
-"""Diagnostics for DEFA Power inteation."""
+"""Diagnostics for DEFA Power integration."""
 
 from functools import partial
 import time
@@ -136,14 +136,14 @@ def _anonymize_object(
             if key in ("id", "chargeSystemId") and isinstance(value, str):
                 result[key] = id_anonymizer.anonymize(value, "anonymized_id")
             elif key in ("smsAlias") and isinstance(value, str):
-                result[key] = id_anonymizer.anonymize(value, "anonymized_alisas")
+                result[key] = id_anonymizer.anonymize(value, "anonymized_alias")
             # Special handling for aliasMap which contains connector IDs as keys
             elif key == "aliasMap" and isinstance(value, dict):
                 anonymized_map = {}
                 for connector_id, connector_data in value.items():
                     # Anonymize the connector ID key
                     anonymized_key = id_anonymizer.anonymize(
-                        connector_id, "anonymized_alisas"
+                        connector_id, "anonymized_alias"
                     )
                     # Recursively anonymize the connector data values
                     anonymized_map[anonymized_key] = _anonymize_object(
