@@ -141,7 +141,7 @@ class MyChargers(TypedDict, total=False):
     givingAccess: list[ChargePointAccess]
 
 
-# Addidional connector data types
+# Additional connector data types
 class OCPPData(TypedDict, total=False):
     """OCPP data."""
 
