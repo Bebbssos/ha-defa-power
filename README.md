@@ -9,7 +9,7 @@ This is a custom integration for Home Assistant that allows you to control and m
 - Set charging current limit.
 - Start and stop charging.
 - Restart the charger.
-- Configure eco mode settings (currently only via actions, entities coming soon).
+- Configure eco mode settings (including per weekday departure time not available in the app).
 
 ### Installation Instructions
 
