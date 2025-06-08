@@ -135,7 +135,7 @@ def _anonymize_object(
             # Handle keys that need anonymization
             if key in ("id", "chargeSystemId") and isinstance(value, str):
                 result[key] = id_anonymizer.anonymize(value, "anonymized_id")
-            elif key in ("smsAlias") and isinstance(value, str):
+            elif key == "smsAlias" and isinstance(value, str):
                 result[key] = id_anonymizer.anonymize(value, "anonymized_alias")
             # Special handling for aliasMap which contains connector IDs as keys
             elif key == "aliasMap" and isinstance(value, dict):
