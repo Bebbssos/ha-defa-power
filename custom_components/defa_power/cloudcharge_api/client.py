@@ -17,6 +17,7 @@ from .models import (
     EcoModeConfiguration,
     EcoModeConfigurationRequest,
     LoadBalancer,
+    MyChargers,
     NetworkConfiguration,
     OperationalData,
     PrivateChargePoint,
@@ -166,34 +167,33 @@ class CloudChargeAPIClient:
 
         # Fetch private chargers
         if not skip_private:
-            async with (
-                aiohttp.ClientSession() as session,
-                session.get(
-                    f"{self.__base_url}/chargers/private", headers=self.__headers
-                ) as response,
-            ):
-                await self.__async_check_response(response)
-                data = await response.json()
-                for charger in data:
-                    if "data" in charger and "id" in charger["data"]:
-                        ids.add(charger["data"]["id"])
+            private_chargepoints = await self.async_get_private_chargepoints()
+            for charger in private_chargepoints:
+                if "data" in charger and "id" in charger["data"]:
+                    ids.add(charger["data"]["id"])
 
         # Fetch receiving access chargers
         if not skip_receiving_access:
-            async with (
-                aiohttp.ClientSession() as session,
-                session.get(
-                    f"{self.__base_url}/mychargers", headers=self.__headers
-                ) as response,
-            ):
-                await self.__async_check_response(response)
-                data = await response.json()
-                if data and "receivingAccess" in data:
-                    for access in data["receivingAccess"]:
-                        if "chargePoint" in access and "id" in access["chargePoint"]:
-                            ids.add(access["chargePoint"]["id"])
+            my_chargers = await self.async_get_my_chargers()
+            if "receivingAccess" in my_chargers:
+                for access in my_chargers["receivingAccess"]:
+                    if "chargePoint" in access and "id" in access["chargePoint"]:
+                        ids.add(access["chargePoint"]["id"])
 
         return list(ids)
+
+    async def async_get_my_chargers(self) -> MyChargers:
+        """Get my chargers (including receiving and giving access). Login required."""
+        self.__check_logged_in()
+
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
+                f"{self.__base_url}/mychargers", headers=self.__headers
+            ) as response,
+        ):
+            await self.__async_check_response(response)
+            return await response.json()
 
     async def async_get_private_chargepoints(self) -> list[PrivateChargePoint]:
         """Get private chargepoints. Login required."""
@@ -338,7 +338,7 @@ class CloudChargeAPIClient:
             await self.__async_check_response(response)
 
     async def async_reset_charger(
-        self, connector_id: str, type: Literal["hard", "soft"]
+        self, connector_id: str, reset_type: Literal["hard", "soft"]
     ):
         """Restart charger. Login required."""
         self.__check_logged_in()
@@ -346,7 +346,7 @@ class CloudChargeAPIClient:
         async with (
             aiohttp.ClientSession() as session,
             session.post(
-                f"{self.__base_url}/connector/{connector_id}/reset?type={type}",
+                f"{self.__base_url}/connector/{connector_id}/reset?type={reset_type}",
                 headers=self.__headers,
             ) as response,
         ):
