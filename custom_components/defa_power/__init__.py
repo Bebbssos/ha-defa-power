@@ -4,6 +4,7 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 
 from .cloudcharge_api.client import CloudChargeAPIClient
 from .const import API_BASE_URL
@@ -87,6 +88,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
             connectors[connector_id] = c
 
     entry.runtime_data = data
+
+    # Pre-register chargepoint devices in device registry to ensure
+    # they exist before connector devices try to reference them via via_device
+    device_registry = dr.async_get(hass)
+    for chargepoint_id, chargepoint_data in chargepoints.items():
+        device_info = chargepoint_data["device"].get_device_info()
+        # Ensure the parent device exists in device registry before child devices reference it
+        device_registry.async_get_or_create(
+            config_entry_id=entry.entry_id, **device_info
+        )
 
     entry.async_on_unload(entry.add_update_listener(update_listener))
 
