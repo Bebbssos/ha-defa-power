@@ -1,4 +1,4 @@
-## DEFA Power & eRange EV Charger Home Assistant Integration
+## DEFA Power & eRange EV Charger integration for Home Assistant 
 
 This is a custom integration for Home Assistant that allows you to control and monitor your DEFA Power and eRange EV chargers using the **CloudCharge API**, similar to the official DEFA Power and CloudCharge apps.
 
