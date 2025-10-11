@@ -9,7 +9,7 @@ import uuid
 import voluptuous as vol
 
 from homeassistant import config_entries, core
-from homeassistant.data_entry_flow import FlowResult
+from homeassistant.config_entries import ConfigFlowResult
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.selector import (
     SelectSelector,
@@ -301,11 +301,10 @@ class DefaPowerOptionsFlowHandler(config_entries.OptionsFlow):
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
-        self.config_entry = config_entry
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Manage the options."""
         if user_input is not None:
             if user_input["select_step"] == "show_current_token":
@@ -316,7 +315,9 @@ class DefaPowerOptionsFlowHandler(config_entries.OptionsFlow):
             data_schema=OPTIONS_CHOICE_SCHEMA,
         )
 
-    async def async_step_show_token(self, user_input: dict[str, Any] | None = None):
+    async def async_step_show_token(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Show the current token."""
         if user_input is not None:
             return await self.async_step_init()
