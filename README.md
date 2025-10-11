@@ -2,6 +2,8 @@
 
 This is a custom integration for Home Assistant that allows you to control and monitor your DEFA Power EV charger using the **CloudCharge API**, similar to the official DEFA Power app.
 
+**Note:** This integration now also has partial support for DEFA eRange chargers, although some features may not be supported on these models.
+
 ### Features
 
 - Communicate with your DEFA Power EV charger via the CloudCharge API.
@@ -10,6 +12,11 @@ This is a custom integration for Home Assistant that allows you to control and m
 - Start and stop charging.
 - Restart the charger.
 - Configure eco mode settings (including per weekday departure time not available in the app).
+
+#### Compatibility
+
+- **DEFA Power chargers**: Full support for all features.
+- **DEFA eRange chargers**: Partial support - some features may not be available or may not function as expected on these models.
 
 ### Installation Instructions
 
@@ -78,7 +85,6 @@ For complete documentation on available actions, please see [ACTIONS.md](ACTIONS
 ### To-Do List
 
 - [ ] **Additional Entities**: Add more entities from the data provided by the CloudCharge API.
-- [ ] **Eco Mode Configuration**: Add functionality to control eco mode through entities (currently only available via actions).
 
 ### Disclaimer
 
