@@ -410,6 +410,10 @@
             "name": "Ställ in strömgräns",
             "description": "Ställ in maximal laddningsströmgräns för laddaren.",
             "fields": {
+                "device_id": {
+                    "name": "Laddarkontakt",
+                    "description": "Välj kontaktenhet (inte laddstation) att ställa in strömgräns för."
+                },
                 "current_limit": {
                     "name": "Strömgräns",
                     "description": "Maximal laddningsström i ampere."
@@ -420,6 +424,10 @@
             "name": "Ställ in Eco-läge",
             "description": "Konfigurera inställningar för eco-läge för laddaren.",
             "fields": {
+                "device_id": {
+                    "name": "Laddarkontakt",
+                    "description": "Välj kontaktenhet (inte laddstation) att konfigurera eco-läge för."
+                },
                 "active": {
                     "name": "Eco-läge aktivt",
                     "description": "Aktivera eller inaktivera eco-läge."
@@ -464,16 +472,32 @@
         },
         "start_charging": {
             "name": "Starta laddning",
-            "description": "Starta laddning."
+            "description": "Starta laddning.",
+            "fields": {
+                "device_id": {
+                    "name": "Laddarkontakt",
+                    "description": "Välj kontaktenhet (inte laddstation) att starta laddning för."
+                }
+            }
         },
         "stop_charging": {
             "name": "Stoppa laddning",
-            "description": "Stoppa laddning."
+            "description": "Stoppa laddning.",
+            "fields": {
+                "device_id": {
+                    "name": "Laddarkontakt",
+                    "description": "Välj kontaktenhet (inte laddstation) att stoppa laddning för."
+                }
+            }
         },
         "reset_charger": {
             "name": "Återställ laddare",
             "description": "Återställ laddaren med en specificerad återställningstyp.",
             "fields": {
+                "device_id": {
+                    "name": "Laddarkontakt",
+                    "description": "Välj kontaktenhet (inte laddstation) att återställa."
+                },
                 "type": {
                     "name": "Återställningstyp",
                     "description": "Typ av återställning att utföra (mjuk eller hård)."

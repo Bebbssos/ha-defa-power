@@ -1,8 +1,10 @@
 set_current_limit:
-  target:
-    device:
-      integration: defa_power
   fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: defa_power
     current_limit:
       required: true
       selector:
@@ -11,10 +13,12 @@ set_current_limit:
           max: 80
 
 set_eco_mode:
-  target:
-    device:
-      integration: defa_power
   fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: defa_power
     active:
       required: true
       selector:
@@ -73,20 +77,28 @@ set_eco_mode:
           max: 23
 
 start_charging:
-  target:
-    device:
-      integration: defa_power
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: defa_power
 
 stop_charging:
-  target:
-    device:
-      integration: defa_power
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: defa_power
 
 reset_charger:
-  target:
-    device:
-      integration: defa_power
   fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: defa_power
     type:
       required: true
       selector:

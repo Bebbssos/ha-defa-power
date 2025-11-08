@@ -410,6 +410,10 @@
       "name": "Set Current Limit",
       "description": "Set the maximum charging current for the charger.",
       "fields": {
+        "device_id": {
+          "name": "Charger Connector",
+          "description": "Select the connector device (not the chargepoint) to set the current limit for."
+        },
         "current_limit": {
           "name": "Current Limit",
           "description": "Maximum charging current in amperes."
@@ -420,6 +424,10 @@
       "name": "Set Eco Mode Settings",
       "description": "Configure eco mode settings for the charger.",
       "fields": {
+        "device_id": {
+          "name": "Charger Connector",
+          "description": "Select the connector device (not the chargepoint) to configure eco mode for."
+        },
         "active": {
           "name": "Eco Mode Active",
           "description": "Enable or disable eco mode."
@@ -464,16 +472,32 @@
     },
     "start_charging": {
       "name": "Start Charging",
-      "description": "Start the charging process."
+      "description": "Start the charging process.",
+      "fields": {
+        "device_id": {
+          "name": "Charger Connector",
+          "description": "Select the connector device (not the chargepoint) to start charging."
+        }
+      }
     },
     "stop_charging": {
       "name": "Stop Charging",
-      "description": "Stop the charging process."
+      "description": "Stop the charging process.",
+      "fields": {
+        "device_id": {
+          "name": "Charger Connector",
+          "description": "Select the connector device (not the chargepoint) to stop charging."
+        }
+      }
     },
     "reset_charger": {
       "name": "Reset Charger",
       "description": "Reset the charger with a specified reset type.",
       "fields": {
+        "device_id": {
+          "name": "Charger Connector",
+          "description": "Select the connector device (not the chargepoint) to reset."
+        },
         "type": {
           "name": "Reset Type",
           "description": "Type of reset to perform (soft or hard)."
