@@ -4,7 +4,7 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import config_validation as cv, device_registry as dr
 
 from .cloudcharge_api.client import CloudChargeAPIClient
 from .const import API_BASE_URL
@@ -24,6 +24,8 @@ from .models import (
 from .services import async_setup_services
 
 _LOGGER = logging.getLogger(__name__)
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema("defa_power")
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) -> bool:
