@@ -1,0 +1,35 @@
+{
+  "name": "DEFA Power HA Dev",
+  "image": "ghcr.io/home-assistant/home-assistant:stable",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/ha-defa-power,type=bind,consistency=cached",
+  "workspaceFolder": "/workspaces/ha-defa-power",
+  "mounts": [
+    "source=${localWorkspaceFolder}/custom_components,target=/config/custom_components,type=bind,consistency=cached"
+  ],
+  "postCreateCommand": "bash /workspaces/ha-defa-power/.devcontainer/setup.sh",
+  "appPort": ["8123:8123", "5678:5678"],
+  // --userns=keep-id makes rootless Podman map your host user into the container
+  // so bind-mounted files remain owned by you. Docker ignores this flag.
+  "runArgs": ["--userns=keep-id", "--security-opt", "label=disable"],
+  "remoteUser": "root",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.debugpy",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff"
+      ],
+      "settings": {
+        // Point VS Code at the Python that has homeassistant installed
+        "python.defaultInterpreterPath": "/usr/local/bin/python3",
+        "python.analysis.typeCheckingMode": "basic",
+        "python.analysis.extraPaths": [
+          "/usr/src/homeassistant"
+        ],
+        "editor.formatOnSave": true,
+        "files.trimTrailingWhitespace": true
+      }
+    }
+  }
+}
