@@ -1,4 +1,4 @@
-## DEFA Power & eRange EV Charger integration for Home Assistant 
+## DEFA Power & eRange EV Charger integration for Home Assistant
 
 This is a custom integration for Home Assistant that allows you to control and monitor your DEFA Power and eRange EV chargers using the **CloudCharge API**, similar to the official DEFA Power and CloudCharge apps.
 
@@ -90,7 +90,7 @@ For complete documentation on available actions, please see [ACTIONS.md](ACTIONS
 
 A dev container configuration is included for development in VS Code. It uses the official Home Assistant Docker image, so all HA packages are available for autocomplete and type checking.
 
-**Prerequisites:** [VS Code](https://code.visualstudio.com/) with the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers), and either Docker or Podman.
+**Prerequisites:** [VS Code](https://code.visualstudio.com/) with the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) and Docker (or Podman).
 
 1. Open the repository in VS Code.
 2. When prompted, click **Reopen in Container** (or run **Dev Containers: Reopen in Container** from the command palette).
@@ -101,7 +101,6 @@ A dev container configuration is included for development in VS Code. It uses th
 
 The `custom_components/defa_power` folder is bind-mounted directly into the container, so changes are reflected immediately without rebuilding.
 
-> **Podman users:** Set `"dev.containers.dockerPath": "podman"` in your VS Code user settings.
 
 ### Disclaimer
 

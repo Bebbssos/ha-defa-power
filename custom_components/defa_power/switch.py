@@ -18,7 +18,7 @@ from .devices import ConnectorDevice
 _LOGGER = logging.getLogger(__name__)
 
 
-@dataclass(kw_only=True)
+@dataclass(frozen=True, kw_only=True)
 class DefaPowerEcoModeSwitchDescription(SwitchEntityDescription):
     """Class to describe a DEFA Power eco mode switch entity."""
 
@@ -38,6 +38,7 @@ async def async_setup_entry(
         if val["capabilities"]["ecoMode"]:
             # Add eco mode switches if eco mode is supported by the connector
             eco_mode_coordinator = val["eco_mode_coordinator"]
+            assert eco_mode_coordinator is not None
 
             entities.extend(
                 EcoModeSwitchEntity(
@@ -80,11 +81,14 @@ ECO_MODE_SWITCH_TYPES = (
 )
 
 
-class EcoModeSwitchEntity(CoordinatorEntity, SwitchEntity):
+class EcoModeSwitchEntity(
+    CoordinatorEntity[CloudChargeEcoModeCoordinator], SwitchEntity
+):
     """Switch entity for controlling eco mode settings."""
 
     _attr_has_entity_name = True
     state_val = None
+    entity_description: DefaPowerEcoModeSwitchDescription
 
     def __init__(
         self,
@@ -122,6 +126,8 @@ class EcoModeSwitchEntity(CoordinatorEntity, SwitchEntity):
         if data is None:
             return False
 
+        if self.entity_description.value_fn is None:
+            return False
         new_state = self.entity_description.value_fn(data)
 
         if new_state != self.state_val:
@@ -143,12 +149,14 @@ class EcoModeSwitchEntity(CoordinatorEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
-        await self.coordinator.set_data(
-            lambda config: self.entity_description.set_fn(config, True)
-        )
+        if self.entity_description.set_fn is None:
+            return
+        set_fn = self.entity_description.set_fn
+        await self.coordinator.set_data(lambda config: set_fn(config, True))
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
-        await self.coordinator.set_data(
-            lambda config: self.entity_description.set_fn(config, False)
-        )
+        if self.entity_description.set_fn is None:
+            return
+        set_fn = self.entity_description.set_fn
+        await self.coordinator.set_data(lambda config: set_fn(config, False))

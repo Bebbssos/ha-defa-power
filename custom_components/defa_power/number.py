@@ -1,6 +1,6 @@
 """DEFA Power number entities."""
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 import logging
 
@@ -51,15 +51,17 @@ async def fetch_min_max_values(
     return 6, 32  # Default fallback values
 
 
-@dataclass(kw_only=True)  # Remove frozen=True
+@dataclass(frozen=True, kw_only=True)
 class DefaPowerConnectorNumberDescription(NumberEntityDescription):
     """Class to describe a DEFA Power number entity."""
 
     disabled_by_default: bool = False
     options: list[str] | None = None
-    value_fn: Callable[[Connector], int] | None = None
-    set_fn: Callable[[str, CloudChargeAPIClient, int], None] | None = None
-    get_limits_fn: Callable[[CloudChargeAPIClient, str], tuple[int, int]] | None = None
+    value_fn: Callable[[Connector], int | None] | None = None
+    set_fn: Callable[[str, CloudChargeAPIClient, int], Awaitable[None]] | None = None
+    get_limits_fn: (
+        Callable[[CloudChargeAPIClient, str], Awaitable[tuple[int, int]]] | None
+    ) = None
     create_if_none: bool = False
 
 
@@ -109,8 +111,13 @@ async def async_setup_entry(
             chargepoint_data = entry.runtime_data["chargepoints"][chargepoint_id]
             coordinator = chargepoint_data["coordinator"]
 
+            if description.value_fn is None:
+                _LOGGER.warning(
+                    "Number description %s has no value_fn, skipping", description.key
+                )
+                continue
             current_value = description.value_fn(
-                coordinator.data.get("connectors", {}).get(val["alias"], {})
+                (coordinator.data or {}).get("connectors", {}).get(val["alias"], {})
             )
 
             if description.create_if_none is False and current_value is None:
@@ -137,6 +144,7 @@ async def async_setup_entry(
         if val["capabilities"]["ecoMode"]:
             # Add eco mode number entities if eco mode is supported by the connector
             eco_mode_coordinator = val["eco_mode_coordinator"]
+            assert eco_mode_coordinator is not None
             entities.extend(
                 EcoModeNumberEntity(
                     connector_id,
@@ -157,6 +165,7 @@ class DefaConnectorNumberEntity(CoordinatorEntity, NumberEntity):
 
     state_val = None
     _attr_has_entity_name = True
+    entity_description: DefaPowerConnectorNumberDescription
 
     def __init__(
         self,
@@ -180,7 +189,6 @@ class DefaConnectorNumberEntity(CoordinatorEntity, NumberEntity):
         if description.device_class is not None:
             self._attr_device_class = description.device_class
         self._attr_native_unit_of_measurement = description.native_unit_of_measurement
-        self._attr_unit_of_measurement = description.native_unit_of_measurement
         self._attr_icon = description.icon
 
         if description.disabled_by_default:
@@ -202,6 +210,8 @@ class DefaConnectorNumberEntity(CoordinatorEntity, NumberEntity):
         if self.coordinator.data is None:
             return False
 
+        if self.entity_description.value_fn is None:
+            return False
         new_state = self.entity_description.value_fn(
             self.coordinator.data["connectors"][self.alias]
         )
@@ -220,6 +230,8 @@ class DefaConnectorNumberEntity(CoordinatorEntity, NumberEntity):
     async def async_set_native_value(self, value: float) -> None:
         """Set new value."""
         try:
+            if self.entity_description.set_fn is None:
+                return
             await self.entity_description.set_fn(self.id, self.client, int(value))
             await self.coordinator.async_refresh()
         except Exception as e:
@@ -239,7 +251,7 @@ class DefaConnectorNumberEntity(CoordinatorEntity, NumberEntity):
         return self.entity_description.options
 
 
-@dataclass(kw_only=True)
+@dataclass(frozen=True, kw_only=True)
 class DefaPowerEcoModeNumberDescription(NumberEntityDescription):
     """Class to describe a DEFA Power eco mode number entity."""
 
@@ -267,11 +279,14 @@ ECO_MODE_NUMBER_TYPES: tuple[DefaPowerEcoModeNumberDescription, ...] = (
 )
 
 
-class EcoModeNumberEntity(CoordinatorEntity, NumberEntity):
+class EcoModeNumberEntity(
+    CoordinatorEntity[CloudChargeEcoModeCoordinator], NumberEntity
+):
     """Number entity for controlling eco mode settings."""
 
     _attr_has_entity_name = True
     state_val = None
+    entity_description: DefaPowerEcoModeNumberDescription
 
     def __init__(
         self,
@@ -289,7 +304,6 @@ class EcoModeNumberEntity(CoordinatorEntity, NumberEntity):
         self._attr_unique_id = f"{instance_id}_{connector_id}_{description.key}"
         self._attr_translation_key = f"defa_power_{description.key}"
         self._attr_native_unit_of_measurement = description.native_unit_of_measurement
-        self._attr_unit_of_measurement = description.native_unit_of_measurement
         self._attr_icon = description.icon
 
         if description.disabled_by_default:
@@ -312,6 +326,8 @@ class EcoModeNumberEntity(CoordinatorEntity, NumberEntity):
         if data is None:
             return False
 
+        if self.entity_description.value_fn is None:
+            return False
         new_state = self.entity_description.value_fn(data)
 
         if new_state != self.state_val:
@@ -329,9 +345,10 @@ class EcoModeNumberEntity(CoordinatorEntity, NumberEntity):
     async def async_set_native_value(self, value: float) -> None:
         """Set new value."""
         try:
-            await self.coordinator.set_data(
-                lambda config: self.entity_description.set_fn(config, value)
-            )
+            set_fn = self.entity_description.set_fn
+            if set_fn is None:
+                return
+            await self.coordinator.set_data(lambda config: set_fn(config, int(value)))
         except Exception as e:
             _LOGGER.error(
                 "Failed to set hours to charge to %s for %s: %s",

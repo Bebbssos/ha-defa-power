@@ -8,9 +8,6 @@
   ],
   "postCreateCommand": "bash /workspaces/ha-defa-power/.devcontainer/setup.sh",
   "appPort": ["8123:8123", "5678:5678"],
-  // --userns=keep-id makes rootless Podman map your host user into the container
-  // so bind-mounted files remain owned by you. Docker ignores this flag.
-  "runArgs": ["--userns=keep-id", "--security-opt", "label=disable"],
   "remoteUser": "root",
   "customizations": {
     "vscode": {

@@ -47,47 +47,46 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
     }
 
     for chargepoint_id in chargepoint_ids:
-        c: RuntimeDataChargePoint = {}
-        chargepoints[chargepoint_id] = c
         coordinator = CloudChargeChargepointCoordinator(chargepoint_id, hass, client)
         await coordinator.async_config_entry_first_refresh()
         chargepoint_data = coordinator.data
 
-        c["coordinator"] = coordinator
-        c["device"] = ChargePointDevice(chargepoint_data["chargepoint"], instance_id)
-        c["skipped_entities"] = []
+        cp: RuntimeDataChargePoint = {
+            "coordinator": coordinator,
+            "device": ChargePointDevice(chargepoint_data["chargepoint"], instance_id),
+            "skipped_entities": [],
+        }
+        chargepoints[chargepoint_id] = cp
 
         for alias, val in chargepoint_data["connectors"].items():
             connector_id = val["id"]
 
-            c: RuntimeDataConnector = {}
-
             capabilities: RuntimeDataConnectorCapabilities = {
                 "ecoMode": val.get("capabilities", {}).get("ecoMode", False)
             }
-            c["capabilities"] = capabilities
 
             operational_data_coordinator = CloudChargeOperationalDataCoordinator(
                 connector_id, hass, client
             )
             await operational_data_coordinator.async_config_entry_first_refresh()
-            c["operational_data_coordinator"] = operational_data_coordinator
 
+            eco_mode_coordinator: CloudChargeEcoModeCoordinator | None = None
             if capabilities["ecoMode"]:
                 eco_mode_coordinator = CloudChargeEcoModeCoordinator(
                     connector_id, hass, client
                 )
                 await eco_mode_coordinator.async_config_entry_first_refresh()
-                c["eco_mode_coordinator"] = eco_mode_coordinator
-            else:
-                eco_mode_coordinator = None
 
-            c["device"] = ConnectorDevice(val, instance_id, alias)
-            c["alias"] = alias
-            c["chargepoint_id"] = chargepoint_id
-            c["skipped_entities"] = []
-
-            connectors[connector_id] = c
+            conn: RuntimeDataConnector = {
+                "device": ConnectorDevice(val, instance_id, alias),
+                "alias": alias,
+                "chargepoint_id": chargepoint_id,
+                "operational_data_coordinator": operational_data_coordinator,
+                "eco_mode_coordinator": eco_mode_coordinator,
+                "capabilities": capabilities,
+                "skipped_entities": [],
+            }
+            connectors[connector_id] = conn
 
     entry.runtime_data = data
 

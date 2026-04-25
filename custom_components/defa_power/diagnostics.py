@@ -1,5 +1,6 @@
 """Diagnostics for DEFA Power integration."""
 
+from collections.abc import Callable
 from functools import partial
 import time
 from typing import Any
@@ -111,7 +112,7 @@ async def _async_get_api_responses(
     )
 
 
-async def _async_call_api(data: dict[str, Any], prop: str, call: callable):
+async def _async_call_api(data: dict[str, Any], prop: str, call: Callable[[], Any]):
     """Call an API method and handle exceptions."""
     try:
         start_time = time.perf_counter()

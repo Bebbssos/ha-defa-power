@@ -28,7 +28,7 @@ class DefaPowerChargeStartStopButtonDescription(ButtonEntityDescription):
 
     disabled_by_default: bool = False
     on_press: Callable[[str, CloudChargeAPIClient], Awaitable[None]]
-    available_on_states: list[str]
+    available_on_states: list[str | None]
     refresh_coordinator_wait: float
 
 
@@ -105,6 +105,7 @@ class ChargeStartStopButton(CoordinatorEntity, ButtonEntity):
     _attr_has_entity_name = True
     is_available = False
     is_processing = False
+    entity_description: DefaPowerChargeStartStopButtonDescription
 
     def __init__(
         self,

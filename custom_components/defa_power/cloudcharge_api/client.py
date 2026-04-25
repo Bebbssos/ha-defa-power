@@ -392,8 +392,8 @@ class CloudChargeAPIClient:
         """Export cloud charge api credentials. Login required."""
         self.__check_logged_in()
         return {
-            "user_id": self.__headers.get("x-user"),
-            "token": self.__headers.get("x-authorization"),
+            "user_id": str(self.__headers["x-user"]),
+            "token": str(self.__headers["x-authorization"]),
         }
 
     def import_credentials(self, credentials: CloudChargeApiCredentials):
@@ -404,4 +404,4 @@ class CloudChargeAPIClient:
         self, credentials: CloudChargeApiCredentials
     ):
         """Import and validate cloud charge api credentials."""
-        self.async_login_with_token(credentials["user_id"], credentials["token"])
+        await self.async_login_with_token(credentials["user_id"], credentials["token"])

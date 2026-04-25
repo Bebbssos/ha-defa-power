@@ -169,7 +169,11 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.error("Bad request %s error: %s", e.raw_message, e)
                 if e.error_type == CloudChargeBadRequestErrorType.INVALID_PHONE_NUMBER:
                     errors["base"] = "phonenumber_invalid"
-                elif e.error_type == CloudChargeBadRequestErrorType.INVALID_DEV_TOKEN:
+                else:
+                    errors["base"] = "phonenumber_prelogin_error"
+            except CloudChargeForbiddenError as e:
+                _LOGGER.error("Forbidden %s error: %s", e.raw_message, e)
+                if e.error_type == CloudChargeForbiddenErrorType.INVALID_DEV_TOKEN:
                     errors["base"] = "phonenumber_invalid_dev_token"
                 else:
                     errors["base"] = "phonenumber_prelogin_error"
@@ -195,6 +199,9 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             # Validate the path.
             data = {}
+            if self.send_code_data is None:
+                _LOGGER.error("SMS code step reached without prior send_code_data")
+                return await self.async_step_send_code()
             try:
                 client = CloudChargeAPIClient(API_BASE_URL)
                 await client.async_login_with_phone_number(
@@ -262,7 +269,7 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="manual_entry", data_schema=MANUAL_ENTRY_SCHEMA, errors=errors
         )
 
-    def __add_or_update_entry(self, data: Mapping[str, Any]):
+    def __add_or_update_entry(self, data: dict[str, Any]):
         if self.source in (
             config_entries.SOURCE_RECONFIGURE,
             config_entries.SOURCE_REAUTH,

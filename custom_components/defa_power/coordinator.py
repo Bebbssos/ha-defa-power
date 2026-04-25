@@ -61,9 +61,10 @@ class CloudChargeChargepointCoordinator(DataUpdateCoordinator):
                 raise UpdateFailed(f"Error communicating with API: {err}") from err
 
             connectors = {}
+            chargepoint_id = chargepoint.get("id", "")
 
-            for alias, connector in chargepoint["aliasMap"].items():
-                connector["chargepoint_id"] = chargepoint["id"]
+            for alias, connector in (chargepoint.get("aliasMap") or {}).items():
+                connector["chargepoint_id"] = chargepoint_id  # type: ignore[literal-required]
                 connectors[alias] = connector
 
             return {"chargepoint": chargepoint, "connectors": connectors}
@@ -122,7 +123,7 @@ class CloudChargeOperationalDataCoordinator(DataUpdateCoordinator):
             return data
 
 
-class CloudChargeEcoModeCoordinator(DataUpdateCoordinator):
+class CloudChargeEcoModeCoordinator(DataUpdateCoordinator[EcoModeConfiguration]):
     """CloudCharge operational data coordinator."""
 
     def __init__(
@@ -144,7 +145,7 @@ class CloudChargeEcoModeCoordinator(DataUpdateCoordinator):
         self.connector_id = connector_id
         self.client = client
 
-        self._modified_data = None
+        self._modified_data: EcoModeConfiguration | None = None
         self._has_changes = False
         self._is_saving = False
         self._save_task = None
@@ -199,6 +200,7 @@ class CloudChargeEcoModeCoordinator(DataUpdateCoordinator):
                 # Coalesce rapid-fire changes
                 while self._has_changes:
                     self._has_changes = False
+                    assert self._modified_data is not None
                     request: EcoModeConfigurationRequest = {
                         "active": self._modified_data["active"],
                         "pickupTimeEnabled": self._modified_data["pickupTimeEnabled"],
@@ -213,7 +215,7 @@ class CloudChargeEcoModeCoordinator(DataUpdateCoordinator):
                     except Exception as err:
                         _LOGGER.error("Failed to save eco mode config: %s", err)
                         self._modified_data = None
-                        raise  # Exit immediately, don’t retry
+                        raise  # Exit immediately, don't retry
 
                 _LOGGER.info("Refreshing eco mode config")
 

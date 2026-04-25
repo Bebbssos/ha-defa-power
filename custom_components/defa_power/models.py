@@ -33,7 +33,7 @@ class RuntimeDataConnector(TypedDict):
     device: ConnectorDevice
     alias: str
     operational_data_coordinator: CloudChargeOperationalDataCoordinator
-    eco_mode_coordinator: CloudChargeEcoModeCoordinator
+    eco_mode_coordinator: CloudChargeEcoModeCoordinator | None
     capabilities: RuntimeDataConnectorCapabilities
     chargepoint_id: str
     skipped_entities: list[str]

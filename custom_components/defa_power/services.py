@@ -8,6 +8,7 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv, device_registry as dr
 
 from .const import DOMAIN
+from .cloudcharge_api.models import EcoModeConfiguration
 from .models import RuntimeData
 
 SERVICE_SET_CURRENT_LIMIT = "set_current_limit"
@@ -79,7 +80,7 @@ async def async_setup_services(hass: HomeAssistant):
 
     async def handle_set_current_limit(call: ServiceCall):
         """Handle setting current limit."""
-        current_limit = call.data.get("current_limit")
+        current_limit = int(call.data["current_limit"])
 
         for connector_id, runtime_data in device_data_generator(hass, call):
             await runtime_data["client"].async_set_max_current(
@@ -92,26 +93,44 @@ async def async_setup_services(hass: HomeAssistant):
 
     async def handle_set_eco_mode(call: ServiceCall):
         """Handle setting eco mode."""
-        config = {
-            "active": call.data.get("active"),
-            "hoursToCharge": call.data.get("hours_to_charge"),
-            "pickupTimeEnabled": call.data.get("pickup_time_enabled"),
-            "dayOfWeekMap": {
-                "MONDAY": call.data.get("pickup_time_mon"),
-                "TUESDAY": call.data.get("pickup_time_tue"),
-                "WEDNESDAY": call.data.get("pickup_time_wed"),
-                "THURSDAY": call.data.get("pickup_time_thu"),
-                "FRIDAY": call.data.get("pickup_time_fri"),
-                "SATURDAY": call.data.get("pickup_time_sat"),
-                "SUNDAY": call.data.get("pickup_time_sun"),
-            },
+        # Build a partial update dict with only the fields the user explicitly controls.
+        # Days omitted from the call are left unchanged in the existing config.
+        day_of_week_updates: dict[str, int | None] = {
+            day: (int(val) if val is not None else None)
+            for day, key in (
+                ("MONDAY", "pickup_time_mon"),
+                ("TUESDAY", "pickup_time_tue"),
+                ("WEDNESDAY", "pickup_time_wed"),
+                ("THURSDAY", "pickup_time_thu"),
+                ("FRIDAY", "pickup_time_fri"),
+                ("SATURDAY", "pickup_time_sat"),
+                ("SUNDAY", "pickup_time_sun"),
+            )
+            if (val := call.data.get(key)) is not None
         }
+        active: bool = call.data["active"]
+        hours_to_charge: int = int(call.data["hours_to_charge"])
+        pickup_time_enabled: bool = call.data["pickup_time_enabled"]
+
+        def _apply(
+            data: EcoModeConfiguration,
+            _active: bool = active,
+            _hours: int = hours_to_charge,
+            _pickup: bool = pickup_time_enabled,
+            _days: dict[str, int | None] = day_of_week_updates,
+        ) -> None:
+            data["active"] = _active
+            data["hoursToCharge"] = _hours
+            data["pickupTimeEnabled"] = _pickup
+            # Merge only the days that were provided; leave others intact.
+            data["dayOfWeekMap"].update(_days)  # type: ignore[typeddict-item]
 
         for connector_id, runtime_data in device_data_generator(hass, call):
             coordinator = runtime_data["connectors"][connector_id][
                 "eco_mode_coordinator"
             ]
-            await coordinator.set_data(lambda data: data.update(config))
+            assert coordinator is not None
+            await coordinator.set_data(_apply)
 
     async def handle_start_charging(call: ServiceCall):
         """Handle starting charging."""
@@ -135,7 +154,7 @@ async def async_setup_services(hass: HomeAssistant):
 
     async def handle_reset_charger(call: ServiceCall):
         """Handle resetting charger."""
-        reset_type = call.data.get("type")
+        reset_type = call.data["type"]
 
         for connector_id, runtime_data in device_data_generator(hass, call):
             await runtime_data["client"].async_reset_charger(connector_id, reset_type)

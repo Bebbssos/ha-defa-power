@@ -26,6 +26,7 @@ async def async_setup_entry(
         if val["capabilities"]["ecoMode"]:
             # Add eco mode selects if eco mode is supported by the connector
             eco_mode_coordinator = val["eco_mode_coordinator"]
+            assert eco_mode_coordinator is not None
             entities.extend(
                 EcoModeWeekDayScheduleSelect(
                     connector_id,
@@ -49,7 +50,9 @@ async def async_setup_entry(
     async_add_entities(entities, update_before_add=True)
 
 
-class EcoModeWeekDayScheduleSelect(CoordinatorEntity, SelectEntity):
+class EcoModeWeekDayScheduleSelect(
+    CoordinatorEntity[CloudChargeEcoModeCoordinator], SelectEntity
+):
     """Select entity for selecting the eco mode schedule for a weekday."""
 
     _attr_has_entity_name = True

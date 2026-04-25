@@ -203,8 +203,13 @@ async def async_setup_entry(
 
     for chargepoint_id, val in entry.runtime_data["chargepoints"].items():
         for sensor_type in DEFA_POWER_CHARGEPOINT_SENSOR_TYPES:
+            if sensor_type.value_fn is None:
+                _LOGGER.warning(
+                    "Sensor description %s has no value_fn, skipping", sensor_type.key
+                )
+                continue
             current_value = sensor_type.value_fn(
-                val["coordinator"].data.get("chargepoint", {})
+                (val["coordinator"].data or {}).get("chargepoint", {})
             )
 
             if sensor_type.create_if_none is False and current_value is None:
@@ -228,6 +233,11 @@ async def async_setup_entry(
 
     for connector_id, val in entry.runtime_data["connectors"].items():
         for sensor_type in DEFA_POWER_CONNECTOR_SENSOR_TYPES:
+            if sensor_type.value_fn is None:
+                _LOGGER.warning(
+                    "Sensor description %s has no value_fn, skipping", sensor_type.key
+                )
+                continue
             if sensor_type.coordinator == Coordinator.OPERATIONAL_DATA:
                 coordinator = val["operational_data_coordinator"]
                 current_value = sensor_type.value_fn(coordinator.data)
@@ -236,7 +246,7 @@ async def async_setup_entry(
                 chargepoint_data = entry.runtime_data["chargepoints"][chargepoint_id]
                 coordinator = chargepoint_data["coordinator"]
                 current_value = sensor_type.value_fn(
-                    coordinator.data.get("connectors", {}).get(val["alias"], {})
+                    (coordinator.data or {}).get("connectors", {}).get(val["alias"], {})
                 )
 
             if sensor_type.create_if_none is False and current_value is None:
@@ -267,6 +277,7 @@ class DefaChargePointEntity(CoordinatorEntity, SensorEntity):
 
     state_val = None
     _attr_has_entity_name = True
+    entity_description: DefaPowerSensorDescription
 
     def __init__(
         self,
@@ -287,7 +298,6 @@ class DefaChargePointEntity(CoordinatorEntity, SensorEntity):
         if description.state_class is not None:
             self._attr_state_class = description.state_class
         self._attr_native_unit_of_measurement = description.native_unit_of_measurement
-        self._attr_unit_of_measurement = description.native_unit_of_measurement
         self._attr_icon = description.icon
 
         if description.disabled_by_default:
@@ -310,6 +320,8 @@ class DefaChargePointEntity(CoordinatorEntity, SensorEntity):
         if self.coordinator.data is None:
             return False
 
+        if self.entity_description.value_fn is None:
+            return False
         new_state = self.entity_description.value_fn(
             self.coordinator.data["chargepoint"]
         )
@@ -331,7 +343,7 @@ class DefaChargePointEntity(CoordinatorEntity, SensorEntity):
         return self.state_val
 
     @property
-    def unit_of_measurement(self) -> str:
+    def unit_of_measurement(self) -> str | None:
         """Return the unit of measurement."""
         return self._attr_native_unit_of_measurement
 
@@ -346,6 +358,7 @@ class DefaConnectorEntity(CoordinatorEntity, SensorEntity):
 
     state_val = None
     _attr_has_entity_name = True
+    entity_description: DefaPowerConnectorSensorDescription
 
     def __init__(
         self,
@@ -374,7 +387,6 @@ class DefaConnectorEntity(CoordinatorEntity, SensorEntity):
         if description.state_class is not None:
             self._attr_state_class = description.state_class
         self._attr_native_unit_of_measurement = description.native_unit_of_measurement
-        self._attr_unit_of_measurement = description.native_unit_of_measurement
         self._attr_icon = description.icon
 
         if description.disabled_by_default:
@@ -398,6 +410,8 @@ class DefaConnectorEntity(CoordinatorEntity, SensorEntity):
         if self.coordinator.data is None:
             return False
 
+        if self.entity_description.value_fn is None:
+            return False
         if self.id_lookup_required:
             new_state = self.entity_description.value_fn(
                 self.coordinator.data["connectors"][self.alias]
@@ -422,7 +436,7 @@ class DefaConnectorEntity(CoordinatorEntity, SensorEntity):
         return self.state_val
 
     @property
-    def unit_of_measurement(self) -> str:
+    def unit_of_measurement(self) -> str | None:
         """Return the unit of measurement."""
         return self._attr_native_unit_of_measurement
 

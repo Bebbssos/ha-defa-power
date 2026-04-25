@@ -11,7 +11,7 @@ class ChargePointDevice:
     def __init__(self, data, instance_id) -> None:
         """Initialize the device."""
         self._device_info = DeviceInfo(
-            identifiers={(DOMAIN, instance_id, data["id"])},
+            identifiers={(DOMAIN, instance_id, data["id"])},  # type: ignore[arg-type]
             name=data.get("displayName") or data["id"],
         )
 
@@ -26,13 +26,13 @@ class ConnectorDevice:
     def __init__(self, data, instance_id, alias) -> None:
         """Initialize the device."""
         self._device_info = DeviceInfo(
-            identifiers={(DOMAIN, instance_id, data["id"])},
+            identifiers={(DOMAIN, instance_id, data["id"])},  # type: ignore[arg-type]
             manufacturer=data["vendor"],
             model=data["model"],
             name=data.get("displayName") or alias or data["id"],
             sw_version=data["firmwareVersion"],
             serial_number=data["serialNumber"],
-            via_device=(DOMAIN, instance_id, data["chargepoint_id"]),
+            via_device=(DOMAIN, instance_id, data["chargepoint_id"]),  # type: ignore[arg-type]
         )
 
     def get_device_info(self):
