@@ -39,6 +39,8 @@ class Capabilities(TypedDict, total=False):
 
     ecoMode: bool
     solar: bool
+    maxPower: bool
+    manualSchedules: bool
     accessControl: bool
     loadBalancing: bool
     bluetoothNetworkSetup: bool

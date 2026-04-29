@@ -12,7 +12,12 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .cloudcharge_api.client import CloudChargeAPIClient
 from .cloudcharge_api.exceptions import CloudChargeAPIError, CloudChargeAuthError
-from .cloudcharge_api.models import EcoModeConfiguration, EcoModeConfigurationRequest
+from .cloudcharge_api.models import (
+    ActiveScheduleSettings,
+    EcoModeConfiguration,
+    EcoModeConfigurationRequest,
+    ManualSchedules,
+)
 
 CONF_TOKEN = "token"
 CONF_USER_ID = "userId"
@@ -230,3 +235,63 @@ class CloudChargeEcoModeCoordinator(DataUpdateCoordinator[EcoModeConfiguration])
         finally:
             self._is_saving = False
             self._save_task = None
+
+
+class CloudChargeManualSchedulesCoordinator(DataUpdateCoordinator[ManualSchedules]):
+    """CloudCharge manual schedules coordinator."""
+
+    def __init__(
+        self, connector_id: str, hass: HomeAssistant, client: CloudChargeAPIClient
+    ) -> None:
+        """Initialize coordinator."""
+        super().__init__(
+            hass,
+            _LOGGER,
+            name="CloudCharge manual schedules",
+            update_interval=timedelta(minutes=15),
+            always_update=True,
+        )
+        self.connector_id = connector_id
+        self.client = client
+
+    async def _async_update_data(self):
+        """Fetch data from API endpoint."""
+        async with asyncio.timeout(10):
+            try:
+                return await self.client.async_get_manual_schedules(self.connector_id)
+            except CloudChargeAuthError as err:
+                raise ConfigEntryAuthFailed from err
+            except CloudChargeAPIError as err:
+                raise UpdateFailed(f"Error communicating with API: {err}") from err
+
+
+class CloudChargeActiveScheduleCoordinator(
+    DataUpdateCoordinator[ActiveScheduleSettings]
+):
+    """CloudCharge active schedule coordinator."""
+
+    def __init__(
+        self, connector_id: str, hass: HomeAssistant, client: CloudChargeAPIClient
+    ) -> None:
+        """Initialize coordinator."""
+        super().__init__(
+            hass,
+            _LOGGER,
+            name="CloudCharge active schedule",
+            update_interval=timedelta(minutes=5),
+            always_update=True,
+        )
+        self.connector_id = connector_id
+        self.client = client
+
+    async def _async_update_data(self):
+        """Fetch data from API endpoint."""
+        async with asyncio.timeout(10):
+            try:
+                return await self.client.async_get_active_schedule_settings(
+                    self.connector_id
+                )
+            except CloudChargeAuthError as err:
+                raise ConfigEntryAuthFailed from err
+            except CloudChargeAPIError as err:
+                raise UpdateFailed(f"Error communicating with API: {err}") from err
