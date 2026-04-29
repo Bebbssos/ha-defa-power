@@ -519,6 +519,30 @@
                     "description": "Typ av återställning att utföra (mjuk eller hård)."
                 }
             }
+        },
+        "set_manual_schedules_enabled": {
+            "name": "Aktivera laddningsschema",
+            "description": "Aktivera eller inaktivera laddningsschemat för en kontakt.",
+            "fields": {
+                "device_id": {
+                    "name": "Laddarkontakt",
+                    "description": "Välj kontaktenhet (inte laddstation) att konfigurera."
+                },
+                "enabled": {
+                    "name": "Aktiverad",
+                    "description": "Om laddningsschemat ska aktiveras eller inaktiveras."
+                }
+            }
+        },
+        "override_schedule": {
+            "name": "Åsidosätt schema",
+            "description": "Åsidosätt det aktiva smarta laddningsschemat och börja ladda nu.",
+            "fields": {
+                "device_id": {
+                    "name": "Laddarkontakt",
+                    "description": "Välj kontaktenhet (inte laddstation) att åsidosätta schemat för."
+                }
+            }
         }
     }
 }

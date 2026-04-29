@@ -59,6 +59,22 @@ Resets the charger.
 | ----- | -------- | ---------------------------- |
 | type  | Yes      | Reset type: "soft" or "hard" |
 
+### Set Manual Schedules Enabled
+
+Action: `defa_power.set_manual_schedules_enabled`
+
+Enables or disables manual charging schedules for the connector. Only available on connectors that support the `manualSchedules` capability.
+
+| Field   | Required | Description                                    |
+| ------- | -------- | ---------------------------------------------- |
+| enabled | Yes      | `true` to enable manual schedules, `false` to disable |
+
+### Override Schedule
+
+Action: `defa_power.override_schedule`
+
+Overrides the active smart charging schedule and starts charging immediately. Only available on connectors that support the `manualSchedules` capability. Has no effect if charging is not currently paused or if the schedule is already overridden.
+
 ## Example Action Call
 
 ```yaml

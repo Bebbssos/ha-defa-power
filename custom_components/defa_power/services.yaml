@@ -107,3 +107,23 @@ reset_charger:
             - "soft"
             - "hard"
       default: "soft"
+
+set_manual_schedules_enabled:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: defa_power
+    enabled:
+      required: true
+      selector:
+        boolean:
+
+override_schedule:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: defa_power

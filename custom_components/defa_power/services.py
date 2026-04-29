@@ -16,6 +16,8 @@ SERVICE_SET_ECO_MODE = "set_eco_mode"
 SERVICE_START_CHARGING = "start_charging"
 SERVICE_STOP_CHARGING = "stop_charging"
 SERVICE_RESET_CHARGER = "reset_charger"
+SERVICE_SET_MANUAL_SCHEDULES_ENABLED = "set_manual_schedules_enabled"
+SERVICE_OVERRIDE_SCHEDULE = "override_schedule"
 
 
 SET_CURRENT_LIMIT_SCHEMA = vol.Schema(
@@ -71,6 +73,19 @@ RESET_CHARGER_SCHEMA = vol.Schema(
     {
         vol.Required("device_id"): vol.All(cv.ensure_list, [cv.string]),
         vol.Required("type"): vol.In(["soft", "hard"]),
+    }
+)
+
+SET_MANUAL_SCHEDULES_ENABLED_SCHEMA = vol.Schema(
+    {
+        vol.Required("device_id"): vol.All(cv.ensure_list, [cv.string]),
+        vol.Required("enabled"): cv.boolean,
+    }
+)
+
+OVERRIDE_SCHEDULE_SCHEMA = vol.Schema(
+    {
+        vol.Required("device_id"): vol.All(cv.ensure_list, [cv.string]),
     }
 )
 
@@ -159,6 +174,31 @@ async def async_setup_services(hass: HomeAssistant):
         for connector_id, runtime_data in device_data_generator(hass, call):
             await runtime_data["client"].async_reset_charger(connector_id, reset_type)
 
+    async def handle_set_manual_schedules_enabled(call: ServiceCall):
+        """Handle enabling or disabling manual schedules."""
+        enabled: bool = call.data["enabled"]
+
+        for connector_id, runtime_data in device_data_generator(hass, call):
+            await runtime_data["client"].async_set_manual_schedules_enabled(
+                connector_id, enabled
+            )
+            coordinator = runtime_data["connectors"][connector_id][
+                "manual_schedules_coordinator"
+            ]
+            assert coordinator is not None
+            await coordinator.async_refresh()
+
+    async def handle_override_schedule(call: ServiceCall):
+        """Handle overriding the schedule to charge now."""
+        for connector_id, runtime_data in device_data_generator(hass, call):
+            await runtime_data["client"].async_override_schedule(connector_id)
+            await asyncio.sleep(1)
+            coordinator = runtime_data["connectors"][connector_id][
+                "active_schedule_coordinator"
+            ]
+            assert coordinator is not None
+            await coordinator.async_refresh()
+
     # Register all services
     hass.services.async_register(
         DOMAIN,
@@ -193,6 +233,20 @@ async def async_setup_services(hass: HomeAssistant):
         SERVICE_RESET_CHARGER,
         handle_reset_charger,
         RESET_CHARGER_SCHEMA,
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SET_MANUAL_SCHEDULES_ENABLED,
+        handle_set_manual_schedules_enabled,
+        SET_MANUAL_SCHEDULES_ENABLED_SCHEMA,
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_OVERRIDE_SCHEDULE,
+        handle_override_schedule,
+        OVERRIDE_SCHEDULE_SCHEMA,
     )
 
 

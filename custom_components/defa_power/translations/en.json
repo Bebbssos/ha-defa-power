@@ -519,6 +519,30 @@
           "description": "Type of reset to perform (soft or hard)."
         }
       }
+    },
+    "set_manual_schedules_enabled": {
+      "name": "Set Charging Schedule Enabled",
+      "description": "Enable or disable the charging schedule for a connector.",
+      "fields": {
+        "device_id": {
+          "name": "Charger Connector",
+          "description": "Select the connector device (not the chargepoint) to configure."
+        },
+        "enabled": {
+          "name": "Enabled",
+          "description": "Whether to enable or disable the charging schedule."
+        }
+      }
+    },
+    "override_schedule": {
+      "name": "Override Schedule",
+      "description": "Override the active smart charging schedule and start charging now.",
+      "fields": {
+        "device_id": {
+          "name": "Charger Connector",
+          "description": "Select the connector device (not the chargepoint) to override the schedule for."
+        }
+      }
     }
   }
 }
