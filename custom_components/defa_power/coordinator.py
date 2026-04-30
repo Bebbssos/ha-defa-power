@@ -157,6 +157,12 @@ class CloudChargeEcoModeCoordinator(DataUpdateCoordinator[EcoModeConfiguration])
         self._save_task = None
         self._coordinators_to_refresh: list[DataUpdateCoordinator[Any]] = []
 
+    def register_dependent_coordinator(
+        self, coordinator: DataUpdateCoordinator[Any]
+    ) -> None:
+        """Register a coordinator to refresh after eco mode changes are saved."""
+        self._coordinators_to_refresh.append(coordinator)
+
     async def _async_update_data(self):
         """Fetch data from API endpoint."""
         # try:
@@ -258,6 +264,13 @@ class CloudChargeManualSchedulesCoordinator(DataUpdateCoordinator[ManualSchedule
         )
         self.connector_id = connector_id
         self.client = client
+        self._coordinators_to_refresh: list[DataUpdateCoordinator[Any]] = []
+
+    def register_dependent_coordinator(
+        self, coordinator: DataUpdateCoordinator[Any]
+    ) -> None:
+        """Register a coordinator to refresh after manual schedule changes."""
+        self._coordinators_to_refresh.append(coordinator)
 
     async def _async_update_data(self):
         """Fetch data from API endpoint."""
@@ -268,6 +281,42 @@ class CloudChargeManualSchedulesCoordinator(DataUpdateCoordinator[ManualSchedule
                 raise ConfigEntryAuthFailed from err
             except CloudChargeAPIError as err:
                 raise UpdateFailed(f"Error communicating with API: {err}") from err
+
+    async def _async_refresh_with_dependencies(
+        self, visited: frozenset[int] | None = None
+    ) -> None:
+        """Refresh this coordinator and any linked coordinators safely."""
+        if visited is None:
+            visited = frozenset()
+
+        coordinator_id = id(self)
+        if coordinator_id in visited:
+            _LOGGER.debug(
+                "Skipping refresh for manual schedules coordinator %s due to circular dependency",
+                self.connector_id,
+            )
+            return
+
+        next_visited = visited | {coordinator_id}
+
+        await super().async_refresh()
+
+        linked_coordinators = list(dict.fromkeys(self._coordinators_to_refresh))
+        if not linked_coordinators:
+            return
+
+        await asyncio.gather(
+            *(
+                coordinator._async_refresh_with_dependencies(next_visited)
+                if isinstance(coordinator, CloudChargeManualSchedulesCoordinator)
+                else coordinator.async_refresh()
+                for coordinator in linked_coordinators
+            )
+        )
+
+    async def async_refresh(self) -> None:
+        """Refresh data and trigger any linked coordinators."""
+        await self._async_refresh_with_dependencies()
 
 
 class CloudChargeActiveScheduleCoordinator(

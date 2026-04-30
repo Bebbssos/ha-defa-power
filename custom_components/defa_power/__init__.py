@@ -97,8 +97,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
                     connector_id, hass, client
                 )
                 await active_schedule_coordinator.async_config_entry_first_refresh()
+                manual_schedules_coordinator.register_dependent_coordinator(
+                    active_schedule_coordinator
+                )
                 if eco_mode_coordinator is not None:
-                    eco_mode_coordinator._coordinators_to_refresh.append(
+                    eco_mode_coordinator.register_dependent_coordinator(
                         active_schedule_coordinator
                     )
 
