@@ -130,7 +130,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
     entry.async_on_unload(entry.add_update_listener(update_listener))
 
     await hass.config_entries.async_forward_entry_setups(
-        entry, ["sensor", "button", "number", "select", "switch"]
+        entry, ["binary_sensor", "sensor", "button", "number", "select", "switch"]
     )
     return True
 
@@ -139,7 +139,7 @@ async def async_unload_entry(hass: HomeAssistant, entry) -> bool:
     """Unload a config entry."""
     _LOGGER.info("Unloading DEFA Power config entry")
     await hass.config_entries.async_unload_platforms(
-        entry, ["sensor", "button", "number", "select", "switch"]
+        entry, ["binary_sensor", "sensor", "button", "number", "select", "switch"]
     )
     return True
 

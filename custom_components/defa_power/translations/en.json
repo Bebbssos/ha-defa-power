@@ -186,6 +186,11 @@
         "name": "Paused until"
       }
     },
+    "binary_sensor": {
+      "defa_power_override_smart_charging": {
+        "name": "Override smart charging"
+      }
+    },
     "button": {
       "defa_power_start_charging": {
         "name": "Start charging"

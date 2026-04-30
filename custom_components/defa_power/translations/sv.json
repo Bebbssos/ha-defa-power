@@ -186,6 +186,11 @@
                 "name": "Pausad tills"
             }
         },
+        "binary_sensor": {
+            "defa_power_override_smart_charging": {
+                "name": "Åsidosätt smart laddning"
+            }
+        },
         "button": {
             "defa_power_start_charging": {
                 "name": "Starta laddning"
