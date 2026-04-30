@@ -11,6 +11,7 @@ from homeassistant.core import (
     ServiceResponse,
     SupportsResponse,
 )
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv, device_registry as dr
 
 from .const import DOMAIN
@@ -235,13 +236,16 @@ async def async_setup_services(hass: HomeAssistant):
         enabled: bool = call.data["enabled"]
 
         for connector_id, runtime_data in device_data_generator(hass, call):
-            await runtime_data["client"].async_set_manual_schedules_enabled(
-                connector_id, enabled
-            )
             coordinator = runtime_data["connectors"][connector_id][
                 "manual_schedules_coordinator"
             ]
-            assert coordinator is not None
+            if coordinator is None:
+                raise ServiceValidationError(
+                    f"Connector {connector_id} does not support manual schedules"
+                )
+            await runtime_data["client"].async_set_manual_schedules_enabled(
+                connector_id, enabled
+            )
             await coordinator.async_refresh()
 
     async def handle_override_schedule(call: ServiceCall):
@@ -250,7 +254,7 @@ async def async_setup_services(hass: HomeAssistant):
             connector = runtime_data["connectors"][connector_id]
             coordinator = connector["active_schedule_coordinator"]
             if coordinator is None:
-                raise vol.Invalid(
+                raise ServiceValidationError(
                     f"Connector {connector_id} does not support schedule override"
                 )
             await runtime_data["client"].async_override_schedule(connector_id)
@@ -280,17 +284,22 @@ async def async_setup_services(hass: HomeAssistant):
             "enabled": call.data["enabled"],
             "priority": call.data["priority"],
         }
-        result = None
+        results: dict[str, dict] = {}
         for connector_id, runtime_data in device_data_generator(hass, call):
-            result = await runtime_data["client"].async_create_manual_schedule(
-                connector_id, schedule
-            )
             coordinator = runtime_data["connectors"][connector_id][
                 "manual_schedules_coordinator"
             ]
-            assert coordinator is not None
+            if coordinator is None:
+                raise ServiceValidationError(
+                    f"Connector {connector_id} does not support manual schedules"
+                )
+            result = await runtime_data["client"].async_create_manual_schedule(
+                connector_id, schedule
+            )
+            if result is not None:
+                results[connector_id] = dict(result)
             await coordinator.async_refresh()
-        return cast(ServiceResponse, dict(result)) if result is not None else {}
+        return cast(ServiceResponse, {"results": results})
 
     async def handle_update_manual_schedule(call: ServiceCall) -> ServiceResponse:
         """Update a manual schedule on the connector."""
@@ -303,29 +312,38 @@ async def async_setup_services(hass: HomeAssistant):
             "enabled": call.data["enabled"],
             "priority": call.data["priority"],
         }
-        result = None
+        results: dict[str, dict] = {}
         for connector_id, runtime_data in device_data_generator(hass, call):
-            result = await runtime_data["client"].async_update_manual_schedule(
-                connector_id, schedule_id, schedule
-            )
             coordinator = runtime_data["connectors"][connector_id][
                 "manual_schedules_coordinator"
             ]
-            assert coordinator is not None
+            if coordinator is None:
+                raise ServiceValidationError(
+                    f"Connector {connector_id} does not support manual schedules"
+                )
+            result = await runtime_data["client"].async_update_manual_schedule(
+                connector_id, schedule_id, schedule
+            )
+            if result is not None:
+                results[connector_id] = dict(result)
             await coordinator.async_refresh()
-        return cast(ServiceResponse, dict(result)) if result is not None else {}
+
+        return cast(ServiceResponse, {"results": results})
 
     async def handle_delete_manual_schedule(call: ServiceCall):
         """Delete a manual schedule from the connector."""
         schedule_id = int(call.data["schedule_id"])
         for connector_id, runtime_data in device_data_generator(hass, call):
-            await runtime_data["client"].async_delete_manual_schedule(
-                connector_id, schedule_id
-            )
             coordinator = runtime_data["connectors"][connector_id][
                 "manual_schedules_coordinator"
             ]
-            assert coordinator is not None
+            if coordinator is None:
+                raise ServiceValidationError(
+                    f"Connector {connector_id} does not support manual schedules"
+                )
+            await runtime_data["client"].async_delete_manual_schedule(
+                connector_id, schedule_id
+            )
             await coordinator.async_refresh()
 
     # Register all services
