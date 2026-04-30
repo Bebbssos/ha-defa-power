@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import Enum
 import logging
 from typing import Any, Generic, TypeVar
@@ -153,8 +154,11 @@ DEFA_POWER_ACTIVE_SCHEDULE_SENSOR_TYPES: tuple[
         key="paused_until",
         icon="mdi:clock-end",
         coordinator=Coordinator.ACTIVE_SCHEDULE,
+        device_class=SensorDeviceClass.TIMESTAMP,
         create_if_none=True,
-        value_fn=lambda data: data.get("pausedUntil"),
+        value_fn=lambda data: datetime.fromisoformat(v).replace(tzinfo=timezone.utc)
+        if (v := data.get("pausedUntil"))
+        else None,
     ),
 )
 
