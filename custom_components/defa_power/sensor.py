@@ -2,7 +2,6 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from enum import Enum
 import logging
 from typing import Any, Generic, TypeVar
@@ -16,6 +15,7 @@ from homeassistant.components.sensor import (
 from homeassistant.const import UnitOfEnergy, UnitOfPower
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+import homeassistant.util.dt as dt_util
 
 from . import DefaPowerConfigEntry
 from .cloudcharge_api.models import (
@@ -157,8 +157,8 @@ DEFA_POWER_ACTIVE_SCHEDULE_SENSOR_TYPES: tuple[
         device_class=SensorDeviceClass.TIMESTAMP,
         create_if_none=True,
         value_fn=lambda data: (
-            datetime.fromisoformat(v).replace(tzinfo=timezone.utc)
-            if (v := data.get("pausedUntil"))
+            dt_util.as_utc(parsed)
+            if (v := data.get("pausedUntil")) and (parsed := dt_util.parse_datetime(v))
             else None
         ),
     ),
