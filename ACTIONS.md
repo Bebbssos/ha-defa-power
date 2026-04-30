@@ -79,9 +79,26 @@ Overrides the active smart charging schedule and starts charging immediately. Ha
 
 Action: `defa_power.get_manual_schedules`
 
-Returns all charging schedules for the connector.
+Returns all charging schedules for the connector. Only a single connector device may be targeted.
 
-Returns the schedule list keyed by connector ID.
+Returns an object with the following fields:
+
+| Field              | Description                                      |
+| ------------------ | ------------------------------------------------ |
+| schedulingEnabled  | Whether manual scheduling is enabled             |
+| scheduleOverridden | Whether the schedule is currently overridden     |
+| schedules          | List of schedule entries (see fields below)      |
+
+Each entry in `schedules`:
+
+| Field    | Description                              |
+| -------- | ---------------------------------------- |
+| id       | Schedule ID                              |
+| days     | Days of the week the schedule applies to |
+| start    | Start time (HH:MM)                       |
+| stop     | Stop time (HH:MM)                        |
+| enabled  | Whether the schedule entry is active     |
+| priority | Schedule priority                        |
 
 ### Create Charging Schedule
 
@@ -92,12 +109,12 @@ Creates a new charging schedule entry for the connector.
 | Field    | Required | Description                                                  |
 | -------- | -------- | ------------------------------------------------------------ |
 | days     | Yes      | Days of the week the schedule applies to                     |
-| start    | Yes      | Start time (HH:MM)                                           |
-| stop     | Yes      | Stop time (HH:MM)                                            |
+| start    | Yes      | Start time                                                   |
+| stop     | Yes      | Stop time                                                    |
 | enabled  | Yes      | Whether the schedule entry is active                         |
 | priority | No       | Schedule priority — higher number = higher position in list (default: 0) |
 
-Returns the created schedule keyed by connector ID.
+Returns the created schedule entry directly (same fields as entries in `get_manual_schedules`).
 
 ### Update Charging Schedule
 
@@ -109,12 +126,12 @@ Updates an existing charging schedule entry on the connector.
 | ----------- | -------- | ------------------------------------------------------------ |
 | schedule_id | Yes      | ID of the schedule to update                                 |
 | days        | Yes      | Days of the week the schedule applies to                     |
-| start       | Yes      | Start time (HH:MM)                                           |
-| stop        | Yes      | Stop time (HH:MM)                                            |
+| start       | Yes      | Start time                                                   |
+| stop        | Yes      | Stop time                                                    |
 | enabled     | Yes      | Whether the schedule entry is active                         |
 | priority    | Yes      | Schedule priority — higher number = higher position in list  |
 
-Returns the updated schedule keyed by connector ID.
+Returns the updated schedule entry directly (same fields as entries in `get_manual_schedules`).
 
 ### Delete Charging Schedule
 

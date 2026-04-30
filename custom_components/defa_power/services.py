@@ -1,10 +1,11 @@
 """Custom services for the DEFA Power EV charger integration."""
 
 import asyncio
+from typing import cast
 
 import voluptuous as vol
 
-from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
+from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.helpers import config_validation as cv, device_registry as dr
 
 from .const import DOMAIN
@@ -95,7 +96,7 @@ OVERRIDE_SCHEDULE_SCHEMA = vol.Schema(
 
 GET_MANUAL_SCHEDULES_SCHEMA = vol.Schema(
     {
-        vol.Required("device_id"): vol.All(cv.ensure_list, [cv.string]),
+        vol.Required("device_id"): cv.string,
     }
 )
 
@@ -113,8 +114,8 @@ CREATE_MANUAL_SCHEDULE_SCHEMA = vol.Schema(
     {
         vol.Required("device_id"): vol.All(cv.ensure_list, [cv.string]),
         vol.Required("days"): vol.All(cv.ensure_list, [vol.In(DAYS_OF_WEEK)]),
-        vol.Required("start"): cv.string,
-        vol.Required("stop"): cv.string,
+        vol.Required("start"): cv.time,
+        vol.Required("stop"): cv.time,
         vol.Required("enabled"): cv.boolean,
         vol.Optional("priority", default=0): vol.Coerce(float),
     }
@@ -125,8 +126,8 @@ UPDATE_MANUAL_SCHEDULE_SCHEMA = vol.Schema(
         vol.Required("device_id"): vol.All(cv.ensure_list, [cv.string]),
         vol.Required("schedule_id"): vol.All(vol.Coerce(int), vol.Range(min=1)),
         vol.Required("days"): vol.All(cv.ensure_list, [vol.In(DAYS_OF_WEEK)]),
-        vol.Required("start"): cv.string,
-        vol.Required("stop"): cv.string,
+        vol.Required("start"): cv.time,
+        vol.Required("stop"): cv.time,
         vol.Required("enabled"): cv.boolean,
         vol.Required("priority"): vol.Coerce(float),
     }
@@ -249,60 +250,63 @@ async def async_setup_services(hass: HomeAssistant):
             assert coordinator is not None
             await coordinator.async_refresh()
 
-    async def handle_get_manual_schedules(call: ServiceCall):
+    async def handle_get_manual_schedules(call: ServiceCall) -> ServiceResponse:
         """Return manual schedules for the target connector."""
-        result: dict = {}
-        for connector_id, runtime_data in device_data_generator(hass, call):
-            data = await runtime_data["client"].async_get_manual_schedules(connector_id)
-            result = dict(data)
-            break
-        return result
+        device_registry = dr.async_get(hass)
+        device_id = call.data["device_id"]
+        device = device_registry.async_get(device_id)
+        if not device:
+            raise ValueError(f"Device with ID {device_id} not found")
+        connector_id = get_charger_id_from_device(device)
+        runtime_data = get_runtime_data_from_device(hass, device)
+        if connector_id is None or runtime_data is None:
+            raise ValueError(f"Invalid data for device with ID {device_id}")
+        data = await runtime_data["client"].async_get_manual_schedules(connector_id)
+        return cast(ServiceResponse, dict(data))
 
-    async def handle_create_manual_schedule(call: ServiceCall):
+    async def handle_create_manual_schedule(call: ServiceCall) -> ServiceResponse:
         """Create a manual schedule on the connector."""
         schedule: ManualSchedule = {
             "days": call.data["days"],
-            "start": call.data["start"][:5],
-            "stop": call.data["stop"][:5],
+            "start": call.data["start"].strftime("%H:%M"),
+            "stop": call.data["stop"].strftime("%H:%M"),
             "enabled": call.data["enabled"],
             "priority": call.data["priority"],
         }
-        result = {}
+        result = None
         for connector_id, runtime_data in device_data_generator(hass, call):
-            created = await runtime_data["client"].async_create_manual_schedule(
+            result = await runtime_data["client"].async_create_manual_schedule(
                 connector_id, schedule
             )
-            result[connector_id] = created
             coordinator = runtime_data["connectors"][connector_id][
                 "manual_schedules_coordinator"
             ]
             assert coordinator is not None
             await coordinator.async_refresh()
-        return result
+        return cast(ServiceResponse, dict(result)) if result is not None else {}
 
-    async def handle_update_manual_schedule(call: ServiceCall):
+    async def handle_update_manual_schedule(call: ServiceCall) -> ServiceResponse:
         """Update a manual schedule on the connector."""
         schedule_id = int(call.data["schedule_id"])
         schedule: ManualSchedule = {
             "id": schedule_id,
             "days": call.data["days"],
-            "start": call.data["start"][:5],
-            "stop": call.data["stop"][:5],
+            "start": call.data["start"].strftime("%H:%M"),
+            "stop": call.data["stop"].strftime("%H:%M"),
             "enabled": call.data["enabled"],
             "priority": call.data["priority"],
         }
-        result = {}
+        result = None
         for connector_id, runtime_data in device_data_generator(hass, call):
-            updated = await runtime_data["client"].async_update_manual_schedule(
+            result = await runtime_data["client"].async_update_manual_schedule(
                 connector_id, schedule_id, schedule
             )
-            result[connector_id] = updated
             coordinator = runtime_data["connectors"][connector_id][
                 "manual_schedules_coordinator"
             ]
             assert coordinator is not None
             await coordinator.async_refresh()
-        return result
+        return cast(ServiceResponse, dict(result)) if result is not None else {}
 
     async def handle_delete_manual_schedule(call: ServiceCall):
         """Delete a manual schedule from the connector."""
