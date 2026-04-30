@@ -5,6 +5,7 @@ from collections.abc import Callable
 import copy
 from datetime import timedelta
 import logging
+from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
@@ -154,6 +155,7 @@ class CloudChargeEcoModeCoordinator(DataUpdateCoordinator[EcoModeConfiguration])
         self._has_changes = False
         self._is_saving = False
         self._save_task = None
+        self._coordinators_to_refresh: list[DataUpdateCoordinator[Any]] = []
 
     async def _async_update_data(self):
         """Fetch data from API endpoint."""
@@ -230,6 +232,9 @@ class CloudChargeEcoModeCoordinator(DataUpdateCoordinator[EcoModeConfiguration])
             # Clear before refresh so UI doesn't keep showing old data
             self._modified_data = None
             self.async_update_listeners()
+
+            for coordinator in self._coordinators_to_refresh:
+                await coordinator.async_refresh()
 
             _LOGGER.info("Eco mode config updated successfully")
         finally:

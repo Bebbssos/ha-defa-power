@@ -97,6 +97,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
                     connector_id, hass, client
                 )
                 await active_schedule_coordinator.async_config_entry_first_refresh()
+                if eco_mode_coordinator is not None:
+                    eco_mode_coordinator._coordinators_to_refresh.append(
+                        active_schedule_coordinator
+                    )
 
             conn: RuntimeDataConnector = {
                 "device": ConnectorDevice(val, instance_id, alias),
