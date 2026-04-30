@@ -543,6 +543,94 @@
                     "description": "Välj kontaktenhet (inte laddstation) att åsidosätta schemat för."
                 }
             }
+        },
+        "get_manual_schedules": {
+            "name": "Hämta laddningsscheman",
+            "description": "Returnerar laddningsschemana för kontakten.",
+            "fields": {
+                "device_id": {
+                    "name": "Laddarkontakt",
+                    "description": "Välj kontaktenhet (inte laddstation) att hämta scheman för."
+                }
+            }
+        },
+        "create_manual_schedule": {
+            "name": "Skapa laddningsschema",
+            "description": "Skapar ett nytt laddningsschema för kontakten.",
+            "fields": {
+                "device_id": {
+                    "name": "Laddarkontakt",
+                    "description": "Välj kontaktenhet (inte laddstation) att skapa ett schema för."
+                },
+                "days": {
+                    "name": "Dagar",
+                    "description": "Veckodagar som schemat gäller."
+                },
+                "start": {
+                    "name": "Starttid",
+                    "description": "Tid att börja ladda (HH:MM)."
+                },
+                "stop": {
+                    "name": "Stopptid",
+                    "description": "Tid att sluta ladda (HH:MM)."
+                },
+                "enabled": {
+                    "name": "Aktiverad",
+                    "description": "Om schemat är aktivt."
+                },
+                "priority": {
+                    "name": "Prioritet",
+                    "description": "Högre tal = högre position i listan."
+                }
+            }
+        },
+        "update_manual_schedule": {
+            "name": "Uppdatera laddningsschema",
+            "description": "Uppdaterar ett befintligt laddningsschema på kontakten.",
+            "fields": {
+                "device_id": {
+                    "name": "Laddarkontakt",
+                    "description": "Välj kontaktenhet (inte laddstation) att uppdatera ett schema på."
+                },
+                "schedule_id": {
+                    "name": "Schema-ID",
+                    "description": "ID för schemat som ska uppdateras."
+                },
+                "days": {
+                    "name": "Dagar",
+                    "description": "Veckodagar som schemat gäller."
+                },
+                "start": {
+                    "name": "Starttid",
+                    "description": "Tid att börja ladda (HH:MM)."
+                },
+                "stop": {
+                    "name": "Stopptid",
+                    "description": "Tid att sluta ladda (HH:MM)."
+                },
+                "enabled": {
+                    "name": "Aktiverad",
+                    "description": "Om schemat är aktivt."
+                },
+                "priority": {
+                    "name": "Prioritet",
+                    "description": "Högre tal = högre position i listan."
+                }
+            }
+        },
+        "delete_manual_schedule": {
+            "name": "Ta bort laddningsschema",
+            "description": "Tar bort ett laddningsschema från kontakten.",
+            "fields": {
+                "device_id": {
+                    "name": "Laddarkontakt",
+                    "description": "Välj kontaktenhet (inte laddstation) att ta bort ett schema från."
+                },
+                "schedule_id": {
+                    "name": "Schema-ID",
+                    "description": "ID för schemat som ska tas bort."
+                }
+            }
         }
     }
 }

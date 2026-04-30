@@ -543,6 +543,94 @@
           "description": "Select the connector device (not the chargepoint) to override the schedule for."
         }
       }
+    },
+    "get_manual_schedules": {
+      "name": "Get Charging Schedules",
+      "description": "Returns the charging schedules for the connector.",
+      "fields": {
+        "device_id": {
+          "name": "Charger Connector",
+          "description": "Select the connector device (not the chargepoint) to get schedules for."
+        }
+      }
+    },
+    "create_manual_schedule": {
+      "name": "Create Charging Schedule",
+      "description": "Creates a new charging schedule entry for the connector.",
+      "fields": {
+        "device_id": {
+          "name": "Charger Connector",
+          "description": "Select the connector device (not the chargepoint) to create a schedule for."
+        },
+        "days": {
+          "name": "Days",
+          "description": "Days of the week the schedule applies to."
+        },
+        "start": {
+          "name": "Start time",
+          "description": "Time to start charging (HH:MM)."
+        },
+        "stop": {
+          "name": "Stop time",
+          "description": "Time to stop charging (HH:MM)."
+        },
+        "enabled": {
+          "name": "Enabled",
+          "description": "Whether the schedule is active."
+        },
+        "priority": {
+          "name": "Priority",
+          "description": "Higher number = higher position in list."
+        }
+      }
+    },
+    "update_manual_schedule": {
+      "name": "Update Charging Schedule",
+      "description": "Updates an existing charging schedule entry on the connector.",
+      "fields": {
+        "device_id": {
+          "name": "Charger Connector",
+          "description": "Select the connector device (not the chargepoint) to update a schedule on."
+        },
+        "schedule_id": {
+          "name": "Schedule ID",
+          "description": "ID of the schedule to update."
+        },
+        "days": {
+          "name": "Days",
+          "description": "Days of the week the schedule applies to."
+        },
+        "start": {
+          "name": "Start time",
+          "description": "Time to start charging (HH:MM)."
+        },
+        "stop": {
+          "name": "Stop time",
+          "description": "Time to stop charging (HH:MM)."
+        },
+        "enabled": {
+          "name": "Enabled",
+          "description": "Whether the schedule is active."
+        },
+        "priority": {
+          "name": "Priority",
+          "description": "Higher number = higher position in list."
+        }
+      }
+    },
+    "delete_manual_schedule": {
+      "name": "Delete Charging Schedule",
+      "description": "Deletes a charging schedule entry from the connector.",
+      "fields": {
+        "device_id": {
+          "name": "Charger Connector",
+          "description": "Select the connector device (not the chargepoint) to delete a schedule from."
+        },
+        "schedule_id": {
+          "name": "Schedule ID",
+          "description": "ID of the schedule to delete."
+        }
+      }
     }
   }
 }

@@ -63,7 +63,7 @@ Resets the charger.
 
 Action: `defa_power.set_manual_schedules_enabled`
 
-Enables or disables manual charging schedules for the connector. Only available on connectors that support the `manualSchedules` capability.
+Enables or disables manual charging schedules for the connector.
 
 | Field   | Required | Description                                    |
 | ------- | -------- | ---------------------------------------------- |
@@ -73,7 +73,58 @@ Enables or disables manual charging schedules for the connector. Only available 
 
 Action: `defa_power.override_schedule`
 
-Overrides the active smart charging schedule and starts charging immediately. Only available on connectors that support the `manualSchedules` capability. Has no effect if charging is not currently paused or if the schedule is already overridden.
+Overrides the active smart charging schedule and starts charging immediately. Has no effect if charging is not currently paused or if the schedule is already overridden.
+
+### Get Charging Schedules
+
+Action: `defa_power.get_manual_schedules`
+
+Returns all charging schedules for the connector.
+
+Returns the schedule list keyed by connector ID.
+
+### Create Charging Schedule
+
+Action: `defa_power.create_manual_schedule`
+
+Creates a new charging schedule entry for the connector.
+
+| Field    | Required | Description                                                  |
+| -------- | -------- | ------------------------------------------------------------ |
+| days     | Yes      | Days of the week the schedule applies to                     |
+| start    | Yes      | Start time (HH:MM)                                           |
+| stop     | Yes      | Stop time (HH:MM)                                            |
+| enabled  | Yes      | Whether the schedule entry is active                         |
+| priority | No       | Schedule priority — higher number = higher position in list (default: 0) |
+
+Returns the created schedule keyed by connector ID.
+
+### Update Charging Schedule
+
+Action: `defa_power.update_manual_schedule`
+
+Updates an existing charging schedule entry on the connector.
+
+| Field       | Required | Description                                                  |
+| ----------- | -------- | ------------------------------------------------------------ |
+| schedule_id | Yes      | ID of the schedule to update                                 |
+| days        | Yes      | Days of the week the schedule applies to                     |
+| start       | Yes      | Start time (HH:MM)                                           |
+| stop        | Yes      | Stop time (HH:MM)                                            |
+| enabled     | Yes      | Whether the schedule entry is active                         |
+| priority    | Yes      | Schedule priority — higher number = higher position in list  |
+
+Returns the updated schedule keyed by connector ID.
+
+### Delete Charging Schedule
+
+Action: `defa_power.delete_manual_schedule`
+
+Deletes a charging schedule entry from the connector.
+
+| Field       | Required | Description                  |
+| ----------- | -------- | ---------------------------- |
+| schedule_id | Yes      | ID of the schedule to delete |
 
 ## Example Action Call
 

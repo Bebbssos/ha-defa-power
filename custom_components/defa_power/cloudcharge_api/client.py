@@ -18,6 +18,7 @@ from .models import (
     EcoModeConfiguration,
     EcoModeConfigurationRequest,
     LoadBalancer,
+    ManualSchedule,
     ManualSchedules,
     MyChargers,
     NetworkConfiguration,
@@ -416,6 +417,55 @@ class CloudChargeAPIClient:
         ):
             await self.__async_check_response(response)
             return await response.json()
+
+    async def async_create_manual_schedule(
+        self, connector_id: str, schedule: ManualSchedule
+    ) -> ManualSchedule:
+        """Create a manual schedule for a connector. Login required."""
+        self.__check_logged_in()
+
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(
+                f"{self.__base_url}/connector/{connector_id}/manual-schedules",
+                headers=self.__headers,
+                json=schedule,
+            ) as response,
+        ):
+            await self.__async_check_response(response)
+            return await response.json()
+
+    async def async_update_manual_schedule(
+        self, connector_id: str, schedule_id: int, schedule: ManualSchedule
+    ) -> ManualSchedule:
+        """Update a manual schedule for a connector. Login required."""
+        self.__check_logged_in()
+
+        async with (
+            aiohttp.ClientSession() as session,
+            session.put(
+                f"{self.__base_url}/connector/{connector_id}/manual-schedules/{schedule_id}",
+                headers=self.__headers,
+                json=schedule,
+            ) as response,
+        ):
+            await self.__async_check_response(response)
+            return await response.json()
+
+    async def async_delete_manual_schedule(
+        self, connector_id: str, schedule_id: int
+    ) -> None:
+        """Delete a manual schedule for a connector. Login required."""
+        self.__check_logged_in()
+
+        async with (
+            aiohttp.ClientSession() as session,
+            session.delete(
+                f"{self.__base_url}/connector/{connector_id}/manual-schedules/{schedule_id}",
+                headers=self.__headers,
+            ) as response,
+        ):
+            await self.__async_check_response(response)
 
     async def async_get_active_schedule_settings(
         self, connector_id: str
