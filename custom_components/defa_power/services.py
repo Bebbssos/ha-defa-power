@@ -247,12 +247,14 @@ async def async_setup_services(hass: HomeAssistant):
     async def handle_override_schedule(call: ServiceCall):
         """Handle overriding the schedule to charge now."""
         for connector_id, runtime_data in device_data_generator(hass, call):
+            connector = runtime_data["connectors"][connector_id]
+            coordinator = connector["active_schedule_coordinator"]
+            if coordinator is None:
+                raise vol.Invalid(
+                    f"Connector {connector_id} does not support schedule override"
+                )
             await runtime_data["client"].async_override_schedule(connector_id)
             await asyncio.sleep(1)
-            coordinator = runtime_data["connectors"][connector_id][
-                "active_schedule_coordinator"
-            ]
-            assert coordinator is not None
             await coordinator.async_refresh()
 
     async def handle_get_manual_schedules(call: ServiceCall) -> ServiceResponse:
