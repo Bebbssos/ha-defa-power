@@ -157,7 +157,11 @@ DEFA_POWER_ACTIVE_SCHEDULE_SENSOR_TYPES: tuple[
         device_class=SensorDeviceClass.TIMESTAMP,
         create_if_none=True,
         value_fn=lambda data: (
-            dt_util.as_utc(parsed)
+            (
+                parsed.replace(tzinfo=dt_util.UTC)
+                if parsed.tzinfo is None
+                else parsed.astimezone(dt_util.UTC)
+            )
             if (v := data.get("pausedUntil")) and (parsed := dt_util.parse_datetime(v))
             else None
         ),
