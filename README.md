@@ -12,6 +12,10 @@ This is a custom integration for Home Assistant that allows you to control and m
 - Start and stop charging.
 - Restart the charger.
 - Configure eco mode settings (including per weekday departure time not available in the app).
+- Enable and disable manual charging schedules.
+- See what is pausing smart charging (eco mode or a manual schedule) and until when it is paused.
+- Override the active smart charging schedule to start charging immediately.
+- Actions to view, create, update, and delete manual charging schedules.
 
 #### Compatibility
 
@@ -90,7 +94,7 @@ For complete documentation on available actions, please see [ACTIONS.md](ACTIONS
 
 A dev container configuration is included for development in VS Code. It uses the official Home Assistant Docker image, so all HA packages are available for autocomplete and type checking.
 
-**Prerequisites:** [VS Code](https://code.visualstudio.com/) with the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) and Docker (or Podman).
+**Prerequisites:** [VS Code](https://code.visualstudio.com/) with the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) and Docker (or Podman with additional configuration).
 
 1. Open the repository in VS Code.
 2. When prompted, click **Reopen in Container** (or run **Dev Containers: Reopen in Container** from the command palette).
