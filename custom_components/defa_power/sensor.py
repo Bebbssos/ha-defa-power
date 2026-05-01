@@ -15,9 +15,15 @@ from homeassistant.components.sensor import (
 from homeassistant.const import UnitOfEnergy, UnitOfPower
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+import homeassistant.util.dt as dt_util
 
 from . import DefaPowerConfigEntry
-from .cloudcharge_api.models import ChargePoint, Connector, OperationalData
+from .cloudcharge_api.models import (
+    ActiveScheduleSettings,
+    ChargePoint,
+    Connector,
+    OperationalData,
+)
 from .devices import ChargePointDevice, ConnectorDevice
 
 _LOGGER = logging.getLogger(__name__)
@@ -78,6 +84,7 @@ class Coordinator(Enum):
 
     CHARGERS = 1
     OPERATIONAL_DATA = 2
+    ACTIVE_SCHEDULE = 3
 
 
 T = TypeVar("T")
@@ -126,6 +133,40 @@ def get_charging_state(data):
 
     state = ocpp.get("chargingState")
     return CHARGING_STATE_MAP.get(state, state.lower() if state else None)
+
+
+PAUSED_BY_VALUES = ["ecomode", "manual_schedules"]
+
+
+DEFA_POWER_ACTIVE_SCHEDULE_SENSOR_TYPES: tuple[
+    DefaPowerConnectorSensorDescription, ...
+] = (
+    DefaPowerConnectorSensorDescription[ActiveScheduleSettings](
+        key="paused_by",
+        icon="mdi:pause-circle",
+        coordinator=Coordinator.ACTIVE_SCHEDULE,
+        options=PAUSED_BY_VALUES,
+        device_class=SensorDeviceClass.ENUM,
+        create_if_none=True,
+        value_fn=lambda data: to_lower_case_or_none(data.get("pausedBy")),
+    ),
+    DefaPowerConnectorSensorDescription[ActiveScheduleSettings](
+        key="paused_until",
+        icon="mdi:clock-end",
+        coordinator=Coordinator.ACTIVE_SCHEDULE,
+        device_class=SensorDeviceClass.TIMESTAMP,
+        create_if_none=True,
+        value_fn=lambda data: (
+            (
+                parsed.replace(tzinfo=dt_util.UTC)
+                if parsed.tzinfo is None
+                else parsed.astimezone(dt_util.UTC)
+            )
+            if (v := data.get("pausedUntil")) and (parsed := dt_util.parse_datetime(v))
+            else None
+        ),
+    ),
+)
 
 
 DEFA_POWER_CONNECTOR_SENSOR_TYPES: tuple[DefaPowerConnectorSensorDescription, ...] = (
@@ -263,6 +304,37 @@ async def async_setup_entry(
                     connector_id,
                     val["alias"],
                     coordinator,
+                    sensor_type,
+                    val["device"],
+                    instance_id,
+                )
+            )
+
+    for connector_id, val in entry.runtime_data["connectors"].items():
+        if not val["capabilities"]["manualSchedules"]:
+            continue
+        active_schedule_coordinator = val["active_schedule_coordinator"]
+        assert active_schedule_coordinator is not None
+
+        for sensor_type in DEFA_POWER_ACTIVE_SCHEDULE_SENSOR_TYPES:
+            if sensor_type.value_fn is None:
+                continue
+            current_value = sensor_type.value_fn(active_schedule_coordinator.data or {})
+
+            if sensor_type.create_if_none is False and current_value is None:
+                _LOGGER.debug(
+                    "Skipping entity %s for connector %s, value is None or missing",
+                    sensor_type.key,
+                    connector_id,
+                )
+                val["skipped_entities"].append(sensor_type.key)
+                continue
+
+            entities.append(
+                DefaConnectorEntity(
+                    connector_id,
+                    val["alias"],
+                    active_schedule_coordinator,
                     sensor_type,
                     val["device"],
                     instance_id,

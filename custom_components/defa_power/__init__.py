@@ -9,8 +9,10 @@ from homeassistant.helpers import config_validation as cv, device_registry as dr
 from .cloudcharge_api.client import CloudChargeAPIClient
 from .const import API_BASE_URL
 from .coordinator import (
+    CloudChargeActiveScheduleCoordinator,
     CloudChargeChargepointCoordinator,
     CloudChargeEcoModeCoordinator,
+    CloudChargeManualSchedulesCoordinator,
     CloudChargeOperationalDataCoordinator,
 )
 from .devices import ChargePointDevice, ConnectorDevice
@@ -62,7 +64,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
             connector_id = val["id"]
 
             capabilities: RuntimeDataConnectorCapabilities = {
-                "ecoMode": val.get("capabilities", {}).get("ecoMode", False)
+                "ecoMode": val.get("capabilities", {}).get("ecoMode", False),
+                "manualSchedules": val.get("capabilities", {}).get(
+                    "manualSchedules", False
+                ),
             }
 
             operational_data_coordinator = CloudChargeOperationalDataCoordinator(
@@ -77,12 +82,37 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
                 )
                 await eco_mode_coordinator.async_config_entry_first_refresh()
 
+            manual_schedules_coordinator: (
+                CloudChargeManualSchedulesCoordinator | None
+            ) = None
+            active_schedule_coordinator: CloudChargeActiveScheduleCoordinator | None = (
+                None
+            )
+            if capabilities["manualSchedules"]:
+                manual_schedules_coordinator = CloudChargeManualSchedulesCoordinator(
+                    connector_id, hass, client
+                )
+                await manual_schedules_coordinator.async_config_entry_first_refresh()
+                active_schedule_coordinator = CloudChargeActiveScheduleCoordinator(
+                    connector_id, hass, client
+                )
+                await active_schedule_coordinator.async_config_entry_first_refresh()
+                manual_schedules_coordinator.register_dependent_coordinator(
+                    active_schedule_coordinator
+                )
+                if eco_mode_coordinator is not None:
+                    eco_mode_coordinator.register_dependent_coordinator(
+                        active_schedule_coordinator
+                    )
+
             conn: RuntimeDataConnector = {
                 "device": ConnectorDevice(val, instance_id, alias),
                 "alias": alias,
                 "chargepoint_id": chargepoint_id,
                 "operational_data_coordinator": operational_data_coordinator,
                 "eco_mode_coordinator": eco_mode_coordinator,
+                "manual_schedules_coordinator": manual_schedules_coordinator,
+                "active_schedule_coordinator": active_schedule_coordinator,
                 "capabilities": capabilities,
                 "skipped_entities": [],
             }
@@ -103,7 +133,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
     entry.async_on_unload(entry.add_update_listener(update_listener))
 
     await hass.config_entries.async_forward_entry_setups(
-        entry, ["sensor", "button", "number", "select", "switch"]
+        entry, ["binary_sensor", "sensor", "button", "number", "select", "switch"]
     )
     return True
 
@@ -112,7 +142,7 @@ async def async_unload_entry(hass: HomeAssistant, entry) -> bool:
     """Unload a config entry."""
     _LOGGER.info("Unloading DEFA Power config entry")
     await hass.config_entries.async_unload_platforms(
-        entry, ["sensor", "button", "number", "select", "switch"]
+        entry, ["binary_sensor", "sensor", "button", "number", "select", "switch"]
     )
     return True
 

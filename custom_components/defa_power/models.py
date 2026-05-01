@@ -6,8 +6,10 @@ from homeassistant.config_entries import ConfigEntry
 
 from .cloudcharge_api.client import CloudChargeAPIClient
 from .coordinator import (
+    CloudChargeActiveScheduleCoordinator,
     CloudChargeChargepointCoordinator,
     CloudChargeEcoModeCoordinator,
+    CloudChargeManualSchedulesCoordinator,
     CloudChargeOperationalDataCoordinator,
 )
 from .devices import ChargePointDevice, ConnectorDevice
@@ -25,6 +27,7 @@ class RuntimeDataConnectorCapabilities(TypedDict):
     """Capabilities of a connector."""
 
     ecoMode: bool
+    manualSchedules: bool
 
 
 class RuntimeDataConnector(TypedDict):
@@ -34,6 +37,8 @@ class RuntimeDataConnector(TypedDict):
     alias: str
     operational_data_coordinator: CloudChargeOperationalDataCoordinator
     eco_mode_coordinator: CloudChargeEcoModeCoordinator | None
+    manual_schedules_coordinator: CloudChargeManualSchedulesCoordinator | None
+    active_schedule_coordinator: CloudChargeActiveScheduleCoordinator | None
     capabilities: RuntimeDataConnectorCapabilities
     chargepoint_id: str
     skipped_entities: list[str]

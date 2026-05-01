@@ -1,14 +1,21 @@
 """Custom services for the DEFA Power EV charger integration."""
 
 import asyncio
+from typing import cast
 
 import voluptuous as vol
 
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import (
+    HomeAssistant,
+    ServiceCall,
+    ServiceResponse,
+    SupportsResponse,
+)
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv, device_registry as dr
 
 from .const import DOMAIN
-from .cloudcharge_api.models import EcoModeConfiguration
+from .cloudcharge_api.models import EcoModeConfiguration, ManualSchedule
 from .models import RuntimeData
 
 SERVICE_SET_CURRENT_LIMIT = "set_current_limit"
@@ -16,6 +23,12 @@ SERVICE_SET_ECO_MODE = "set_eco_mode"
 SERVICE_START_CHARGING = "start_charging"
 SERVICE_STOP_CHARGING = "stop_charging"
 SERVICE_RESET_CHARGER = "reset_charger"
+SERVICE_SET_MANUAL_SCHEDULES_ENABLED = "set_manual_schedules_enabled"
+SERVICE_OVERRIDE_SCHEDULE = "override_schedule"
+SERVICE_GET_MANUAL_SCHEDULES = "get_manual_schedules"
+SERVICE_CREATE_MANUAL_SCHEDULE = "create_manual_schedule"
+SERVICE_UPDATE_MANUAL_SCHEDULE = "update_manual_schedule"
+SERVICE_DELETE_MANUAL_SCHEDULE = "delete_manual_schedule"
 
 
 SET_CURRENT_LIMIT_SCHEMA = vol.Schema(
@@ -71,6 +84,65 @@ RESET_CHARGER_SCHEMA = vol.Schema(
     {
         vol.Required("device_id"): vol.All(cv.ensure_list, [cv.string]),
         vol.Required("type"): vol.In(["soft", "hard"]),
+    }
+)
+
+SET_MANUAL_SCHEDULES_ENABLED_SCHEMA = vol.Schema(
+    {
+        vol.Required("device_id"): vol.All(cv.ensure_list, [cv.string]),
+        vol.Required("enabled"): cv.boolean,
+    }
+)
+
+OVERRIDE_SCHEDULE_SCHEMA = vol.Schema(
+    {
+        vol.Required("device_id"): vol.All(cv.ensure_list, [cv.string]),
+    }
+)
+
+GET_MANUAL_SCHEDULES_SCHEMA = vol.Schema(
+    {
+        vol.Required("device_id"): cv.string,
+    }
+)
+
+DAYS_OF_WEEK = [
+    "MONDAY",
+    "TUESDAY",
+    "WEDNESDAY",
+    "THURSDAY",
+    "FRIDAY",
+    "SATURDAY",
+    "SUNDAY",
+]
+
+CREATE_MANUAL_SCHEDULE_SCHEMA = vol.Schema(
+    {
+        vol.Required("device_id"): cv.string,
+        vol.Required("days"): vol.All(cv.ensure_list, [vol.In(DAYS_OF_WEEK)]),
+        vol.Required("start"): cv.time,
+        vol.Required("stop"): cv.time,
+        vol.Required("enabled", default=True): cv.boolean,
+        vol.Required("priority", default=0): vol.Coerce(float),
+    }
+)
+
+UPDATE_MANUAL_SCHEDULE_SCHEMA = vol.Schema(
+    {
+        vol.Required("device_id"): cv.string,
+        vol.Required("schedule_id"): vol.All(vol.Coerce(int), vol.Range(min=1)),
+        vol.Required("days"): vol.All(cv.ensure_list, [vol.In(DAYS_OF_WEEK)]),
+        vol.Required("start"): cv.time,
+        vol.Required("stop"): cv.time,
+        vol.Required("enabled", default=True): cv.boolean,
+        vol.Required("priority", default=0): vol.Coerce(float),
+    }
+)
+
+DELETE_MANUAL_SCHEDULE_SCHEMA = vol.Schema(
+    {
+        vol.Required("device_id"): cv.string,
+        vol.Required("schedule_id"): vol.All(vol.Coerce(int), vol.Range(min=1)),
     }
 )
 
@@ -159,6 +231,138 @@ async def async_setup_services(hass: HomeAssistant):
         for connector_id, runtime_data in device_data_generator(hass, call):
             await runtime_data["client"].async_reset_charger(connector_id, reset_type)
 
+    async def handle_set_manual_schedules_enabled(call: ServiceCall):
+        """Handle enabling or disabling manual schedules."""
+        enabled: bool = call.data["enabled"]
+
+        for connector_id, runtime_data in device_data_generator(hass, call):
+            coordinator = runtime_data["connectors"][connector_id][
+                "manual_schedules_coordinator"
+            ]
+            if coordinator is None:
+                raise ServiceValidationError(
+                    f"Connector {connector_id} does not support manual schedules"
+                )
+            await runtime_data["client"].async_set_manual_schedules_enabled(
+                connector_id, enabled
+            )
+            await coordinator.async_refresh()
+
+    async def handle_override_schedule(call: ServiceCall):
+        """Handle overriding the schedule to charge now."""
+        for connector_id, runtime_data in device_data_generator(hass, call):
+            connector = runtime_data["connectors"][connector_id]
+            coordinator = connector["active_schedule_coordinator"]
+            if coordinator is None:
+                raise ServiceValidationError(
+                    f"Connector {connector_id} does not support schedule override"
+                )
+            await runtime_data["client"].async_override_schedule(connector_id)
+            await asyncio.sleep(1)
+            await coordinator.async_refresh()
+
+    async def handle_get_manual_schedules(call: ServiceCall) -> ServiceResponse:
+        """Return manual schedules for the target connector."""
+        device_registry = dr.async_get(hass)
+        device_id = call.data["device_id"]
+        device = device_registry.async_get(device_id)
+        if not device:
+            raise ValueError(f"Device with ID {device_id} not found")
+        connector_id = get_charger_id_from_device(device)
+        runtime_data = get_runtime_data_from_device(hass, device)
+        if connector_id is None or runtime_data is None:
+            raise ValueError(f"Invalid data for device with ID {device_id}")
+        data = await runtime_data["client"].async_get_manual_schedules(connector_id)
+        return cast(ServiceResponse, dict(data))
+
+    async def handle_create_manual_schedule(call: ServiceCall) -> ServiceResponse:
+        """Create a manual schedule on the connector."""
+        schedule: ManualSchedule = {
+            "days": call.data["days"],
+            "start": call.data["start"].strftime("%H:%M"),
+            "stop": call.data["stop"].strftime("%H:%M"),
+            "enabled": call.data["enabled"],
+            "priority": call.data["priority"],
+        }
+        device_registry = dr.async_get(hass)
+        device_id = call.data["device_id"]
+        device = device_registry.async_get(device_id)
+        if not device:
+            raise ValueError(f"Device with ID {device_id} not found")
+        connector_id = get_charger_id_from_device(device)
+        runtime_data = get_runtime_data_from_device(hass, device)
+        if connector_id is None or runtime_data is None:
+            raise ValueError(f"Invalid data for device with ID {device_id}")
+        coordinator = runtime_data["connectors"][connector_id][
+            "manual_schedules_coordinator"
+        ]
+        if coordinator is None:
+            raise ServiceValidationError(
+                f"Connector {connector_id} does not support manual schedules"
+            )
+        result = await runtime_data["client"].async_create_manual_schedule(
+            connector_id, schedule
+        )
+        await coordinator.async_refresh()
+        return cast(ServiceResponse, dict(result) if result is not None else {})
+
+    async def handle_update_manual_schedule(call: ServiceCall) -> ServiceResponse:
+        """Update a manual schedule on the connector."""
+        schedule_id = int(call.data["schedule_id"])
+        schedule: ManualSchedule = {
+            "id": schedule_id,
+            "days": call.data["days"],
+            "start": call.data["start"].strftime("%H:%M"),
+            "stop": call.data["stop"].strftime("%H:%M"),
+            "enabled": call.data["enabled"],
+            "priority": call.data["priority"],
+        }
+        device_registry = dr.async_get(hass)
+        device_id = call.data["device_id"]
+        device = device_registry.async_get(device_id)
+        if not device:
+            raise ValueError(f"Device with ID {device_id} not found")
+        connector_id = get_charger_id_from_device(device)
+        runtime_data = get_runtime_data_from_device(hass, device)
+        if connector_id is None or runtime_data is None:
+            raise ValueError(f"Invalid data for device with ID {device_id}")
+        coordinator = runtime_data["connectors"][connector_id][
+            "manual_schedules_coordinator"
+        ]
+        if coordinator is None:
+            raise ServiceValidationError(
+                f"Connector {connector_id} does not support manual schedules"
+            )
+        result = await runtime_data["client"].async_update_manual_schedule(
+            connector_id, schedule_id, schedule
+        )
+        await coordinator.async_refresh()
+        return cast(ServiceResponse, dict(result) if result is not None else {})
+
+    async def handle_delete_manual_schedule(call: ServiceCall):
+        """Delete a manual schedule from the connector."""
+        schedule_id = int(call.data["schedule_id"])
+        device_registry = dr.async_get(hass)
+        device_id = call.data["device_id"]
+        device = device_registry.async_get(device_id)
+        if not device:
+            raise ValueError(f"Device with ID {device_id} not found")
+        connector_id = get_charger_id_from_device(device)
+        runtime_data = get_runtime_data_from_device(hass, device)
+        if connector_id is None or runtime_data is None:
+            raise ValueError(f"Invalid data for device with ID {device_id}")
+        coordinator = runtime_data["connectors"][connector_id][
+            "manual_schedules_coordinator"
+        ]
+        if coordinator is None:
+            raise ServiceValidationError(
+                f"Connector {connector_id} does not support manual schedules"
+            )
+        await runtime_data["client"].async_delete_manual_schedule(
+            connector_id, schedule_id
+        )
+        await coordinator.async_refresh()
+
     # Register all services
     hass.services.async_register(
         DOMAIN,
@@ -193,6 +397,51 @@ async def async_setup_services(hass: HomeAssistant):
         SERVICE_RESET_CHARGER,
         handle_reset_charger,
         RESET_CHARGER_SCHEMA,
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SET_MANUAL_SCHEDULES_ENABLED,
+        handle_set_manual_schedules_enabled,
+        SET_MANUAL_SCHEDULES_ENABLED_SCHEMA,
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_OVERRIDE_SCHEDULE,
+        handle_override_schedule,
+        OVERRIDE_SCHEDULE_SCHEMA,
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_GET_MANUAL_SCHEDULES,
+        handle_get_manual_schedules,
+        GET_MANUAL_SCHEDULES_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_CREATE_MANUAL_SCHEDULE,
+        handle_create_manual_schedule,
+        CREATE_MANUAL_SCHEDULE_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_UPDATE_MANUAL_SCHEDULE,
+        handle_update_manual_schedule,
+        UPDATE_MANUAL_SCHEDULE_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_DELETE_MANUAL_SCHEDULE,
+        handle_delete_manual_schedule,
+        DELETE_MANUAL_SCHEDULE_SCHEMA,
     )
 
 

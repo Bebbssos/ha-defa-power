@@ -5,6 +5,7 @@ from collections.abc import Callable
 import copy
 from datetime import timedelta
 import logging
+from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
@@ -12,7 +13,12 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .cloudcharge_api.client import CloudChargeAPIClient
 from .cloudcharge_api.exceptions import CloudChargeAPIError, CloudChargeAuthError
-from .cloudcharge_api.models import EcoModeConfiguration, EcoModeConfigurationRequest
+from .cloudcharge_api.models import (
+    ActiveScheduleSettings,
+    EcoModeConfiguration,
+    EcoModeConfigurationRequest,
+    ManualSchedules,
+)
 
 CONF_TOKEN = "token"
 CONF_USER_ID = "userId"
@@ -149,6 +155,13 @@ class CloudChargeEcoModeCoordinator(DataUpdateCoordinator[EcoModeConfiguration])
         self._has_changes = False
         self._is_saving = False
         self._save_task = None
+        self._coordinators_to_refresh: list[DataUpdateCoordinator[Any]] = []
+
+    def register_dependent_coordinator(
+        self, coordinator: DataUpdateCoordinator[Any]
+    ) -> None:
+        """Register a coordinator to refresh after eco mode changes are saved."""
+        self._coordinators_to_refresh.append(coordinator)
 
     async def _async_update_data(self):
         """Fetch data from API endpoint."""
@@ -226,7 +239,113 @@ class CloudChargeEcoModeCoordinator(DataUpdateCoordinator[EcoModeConfiguration])
             self._modified_data = None
             self.async_update_listeners()
 
+            for coordinator in self._coordinators_to_refresh:
+                await coordinator.async_refresh()
+
             _LOGGER.info("Eco mode config updated successfully")
         finally:
             self._is_saving = False
             self._save_task = None
+
+
+class CloudChargeManualSchedulesCoordinator(DataUpdateCoordinator[ManualSchedules]):
+    """CloudCharge manual schedules coordinator."""
+
+    def __init__(
+        self, connector_id: str, hass: HomeAssistant, client: CloudChargeAPIClient
+    ) -> None:
+        """Initialize coordinator."""
+        super().__init__(
+            hass,
+            _LOGGER,
+            name="CloudCharge manual schedules",
+            update_interval=timedelta(minutes=15),
+            always_update=True,
+        )
+        self.connector_id = connector_id
+        self.client = client
+        self._coordinators_to_refresh: list[DataUpdateCoordinator[Any]] = []
+
+    def register_dependent_coordinator(
+        self, coordinator: DataUpdateCoordinator[Any]
+    ) -> None:
+        """Register a coordinator to refresh after manual schedule changes."""
+        self._coordinators_to_refresh.append(coordinator)
+
+    async def _async_update_data(self):
+        """Fetch data from API endpoint."""
+        async with asyncio.timeout(10):
+            try:
+                return await self.client.async_get_manual_schedules(self.connector_id)
+            except CloudChargeAuthError as err:
+                raise ConfigEntryAuthFailed from err
+            except CloudChargeAPIError as err:
+                raise UpdateFailed(f"Error communicating with API: {err}") from err
+
+    async def _async_refresh_with_dependencies(
+        self, visited: frozenset[int] | None = None
+    ) -> None:
+        """Refresh this coordinator and any linked coordinators safely."""
+        if visited is None:
+            visited = frozenset()
+
+        coordinator_id = id(self)
+        if coordinator_id in visited:
+            _LOGGER.debug(
+                "Skipping refresh for manual schedules coordinator %s due to circular dependency",
+                self.connector_id,
+            )
+            return
+
+        next_visited = visited | {coordinator_id}
+
+        await super().async_refresh()
+
+        linked_coordinators = list(dict.fromkeys(self._coordinators_to_refresh))
+        if not linked_coordinators:
+            return
+
+        await asyncio.gather(
+            *(
+                coordinator._async_refresh_with_dependencies(next_visited)
+                if isinstance(coordinator, CloudChargeManualSchedulesCoordinator)
+                else coordinator.async_refresh()
+                for coordinator in linked_coordinators
+            )
+        )
+
+    async def async_refresh(self) -> None:
+        """Refresh data and trigger any linked coordinators."""
+        await self._async_refresh_with_dependencies()
+
+
+class CloudChargeActiveScheduleCoordinator(
+    DataUpdateCoordinator[ActiveScheduleSettings]
+):
+    """CloudCharge active schedule coordinator."""
+
+    def __init__(
+        self, connector_id: str, hass: HomeAssistant, client: CloudChargeAPIClient
+    ) -> None:
+        """Initialize coordinator."""
+        super().__init__(
+            hass,
+            _LOGGER,
+            name="CloudCharge active schedule",
+            update_interval=timedelta(minutes=5),
+            always_update=True,
+        )
+        self.connector_id = connector_id
+        self.client = client
+
+    async def _async_update_data(self):
+        """Fetch data from API endpoint."""
+        async with asyncio.timeout(10):
+            try:
+                return await self.client.async_get_active_schedule_settings(
+                    self.connector_id
+                )
+            except CloudChargeAuthError as err:
+                raise ConfigEntryAuthFailed from err
+            except CloudChargeAPIError as err:
+                raise UpdateFailed(f"Error communicating with API: {err}") from err

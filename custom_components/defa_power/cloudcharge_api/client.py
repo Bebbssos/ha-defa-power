@@ -12,11 +12,14 @@ from .exceptions import (
     CloudChargeRequestError,
 )
 from .models import (
+    ActiveScheduleSettings,
     ChargePoint,
     CloudChargeApiCredentials,
     EcoModeConfiguration,
     EcoModeConfigurationRequest,
     LoadBalancer,
+    ManualSchedule,
+    ManualSchedules,
     MyChargers,
     NetworkConfiguration,
     OperationalData,
@@ -383,6 +386,118 @@ class CloudChargeAPIClient:
             ) as response,
         ):
             await self.__async_check_response(response)
+
+    async def async_get_manual_schedules(self, connector_id: str) -> ManualSchedules:
+        """Get manual schedules for a connector. Login required."""
+        self.__check_logged_in()
+
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
+                f"{self.__base_url}/connector/{connector_id}/manual-schedules",
+                headers=self.__headers,
+            ) as response,
+        ):
+            await self.__async_check_response(response)
+            return await response.json()
+
+    async def async_set_manual_schedules_enabled(
+        self, connector_id: str, enabled: bool
+    ) -> ManualSchedules:
+        """Enable or disable manual schedules for a connector. Login required."""
+        self.__check_logged_in()
+
+        enabled_str = "true" if enabled else "false"
+        async with (
+            aiohttp.ClientSession() as session,
+            session.put(
+                f"{self.__base_url}/connector/{connector_id}/manual-schedules/enable/{enabled_str}",
+                headers=self.__headers,
+            ) as response,
+        ):
+            await self.__async_check_response(response)
+            return await response.json()
+
+    async def async_create_manual_schedule(
+        self, connector_id: str, schedule: ManualSchedule
+    ) -> ManualSchedule:
+        """Create a manual schedule for a connector. Login required."""
+        self.__check_logged_in()
+
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(
+                f"{self.__base_url}/connector/{connector_id}/manual-schedules",
+                headers=self.__headers,
+                json=schedule,
+            ) as response,
+        ):
+            await self.__async_check_response(response)
+            return await response.json()
+
+    async def async_update_manual_schedule(
+        self, connector_id: str, schedule_id: int, schedule: ManualSchedule
+    ) -> ManualSchedule:
+        """Update a manual schedule for a connector. Login required."""
+        self.__check_logged_in()
+
+        async with (
+            aiohttp.ClientSession() as session,
+            session.put(
+                f"{self.__base_url}/connector/{connector_id}/manual-schedules/{schedule_id}",
+                headers=self.__headers,
+                json=schedule,
+            ) as response,
+        ):
+            await self.__async_check_response(response)
+            return await response.json()
+
+    async def async_delete_manual_schedule(
+        self, connector_id: str, schedule_id: int
+    ) -> None:
+        """Delete a manual schedule for a connector. Login required."""
+        self.__check_logged_in()
+
+        async with (
+            aiohttp.ClientSession() as session,
+            session.delete(
+                f"{self.__base_url}/connector/{connector_id}/manual-schedules/{schedule_id}",
+                headers=self.__headers,
+            ) as response,
+        ):
+            await self.__async_check_response(response)
+
+    async def async_get_active_schedule_settings(
+        self, connector_id: str
+    ) -> ActiveScheduleSettings:
+        """Get active schedule settings for a connector. Login required."""
+        self.__check_logged_in()
+
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
+                f"{self.__base_url}/connector/{connector_id}/schedule/active-settings",
+                headers=self.__headers,
+            ) as response,
+        ):
+            await self.__async_check_response(response)
+            return await response.json()
+
+    async def async_override_schedule(
+        self, connector_id: str
+    ) -> ActiveScheduleSettings:
+        """Override active schedule to charge now. Login required."""
+        self.__check_logged_in()
+
+        async with (
+            aiohttp.ClientSession() as session,
+            session.put(
+                f"{self.__base_url}/connector/{connector_id}/schedule/override",
+                headers=self.__headers,
+            ) as response,
+        ):
+            await self.__async_check_response(response)
+            return await response.json()
 
     def __build_auth_headers(self, user_id: str, token: str):
         """Build headers."""

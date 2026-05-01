@@ -94,6 +94,16 @@ async def _async_get_api_responses(
             "get_max_current_alternatives",
             partial(client.async_get_max_current_alternatives, connector_id),
         )
+        await _async_call_api(
+            d,
+            "get_manual_schedules",
+            partial(client.async_get_manual_schedules, connector_id),
+        )
+        await _async_call_api(
+            d,
+            "get_active_schedule_settings",
+            partial(client.async_get_active_schedule_settings, connector_id),
+        )
 
     return async_redact_data(
         _anonymize_object(data, id_anonymizer),

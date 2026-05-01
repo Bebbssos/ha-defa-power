@@ -16,7 +16,10 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from . import DefaPowerConfigEntry
 from .cloudcharge_api.client import CloudChargeAPIClient
 from .cloudcharge_api.exceptions import CloudChargeForbiddenError
-from .coordinator import CloudChargeOperationalDataCoordinator
+from .coordinator import (
+    CloudChargeActiveScheduleCoordinator,
+    CloudChargeOperationalDataCoordinator,
+)
 from .devices import ConnectorDevice
 
 _LOGGER = logging.getLogger(__name__)
@@ -95,6 +98,19 @@ async def async_setup_entry(
                 connector_id, val["device"], entry.runtime_data["client"], instance_id
             )
         )
+
+        if val["capabilities"]["manualSchedules"]:
+            active_schedule_coordinator = val["active_schedule_coordinator"]
+            assert active_schedule_coordinator is not None
+            entities.append(
+                OverrideScheduleButton(
+                    connector_id,
+                    active_schedule_coordinator,
+                    val["device"],
+                    entry.runtime_data["client"],
+                    instance_id,
+                )
+            )
 
     async_add_entities(entities, update_before_add=True)
 
@@ -196,3 +212,45 @@ class ChargerRestartButton(ButtonEntity):
     async def async_press(self) -> None:
         """Handle the button press."""
         await self.client.async_reset_charger(self.connector_id, "hard")
+
+
+class OverrideScheduleButton(
+    CoordinatorEntity[CloudChargeActiveScheduleCoordinator], ButtonEntity
+):
+    """Button entity for overriding the smart charging schedule (charge now)."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        connector_id: str,
+        coordinator: CloudChargeActiveScheduleCoordinator,
+        device: ConnectorDevice,
+        client: CloudChargeAPIClient,
+        instance_id: str,
+    ) -> None:
+        """Initialize the button entity."""
+        super().__init__(coordinator)
+        self.coordinator = coordinator
+        self.connector_id = connector_id
+        self.client = client
+        self._attr_unique_id = f"{instance_id}_{connector_id}_charge_now"
+        self._attr_translation_key = "defa_power_charge_now"
+        self._attr_icon = "mdi:lightning-bolt-circle"
+        self._attr_device_info = device.get_device_info()
+
+    @property
+    def available(self) -> bool:
+        """Return True when charging is paused and not already overridden."""
+        if not self.coordinator.last_update_success or self.coordinator.data is None:
+            return False
+        data = self.coordinator.data
+        return data.get("pausedBy") is not None and not data.get(
+            "overrideSmartCharging", True
+        )
+
+    async def async_press(self) -> None:
+        """Override the schedule and start charging now."""
+        await self.client.async_override_schedule(self.connector_id)
+        await asyncio.sleep(1)
+        await self.coordinator.async_refresh()

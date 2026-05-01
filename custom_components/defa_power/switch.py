@@ -12,7 +12,10 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from . import DefaPowerConfigEntry
 from .cloudcharge_api.client import CloudChargeAPIClient
 from .cloudcharge_api.models import EcoModeConfiguration
-from .coordinator import CloudChargeEcoModeCoordinator
+from .coordinator import (
+    CloudChargeEcoModeCoordinator,
+    CloudChargeManualSchedulesCoordinator,
+)
 from .devices import ConnectorDevice
 
 _LOGGER = logging.getLogger(__name__)
@@ -50,6 +53,20 @@ async def async_setup_entry(
                     instance_id,
                 )
                 for description in ECO_MODE_SWITCH_TYPES
+            )
+
+        if val["capabilities"]["manualSchedules"]:
+            manual_schedules_coordinator = val["manual_schedules_coordinator"]
+            assert manual_schedules_coordinator is not None
+
+            entities.append(
+                ManualSchedulesSwitchEntity(
+                    connector_id,
+                    manual_schedules_coordinator,
+                    val["device"],
+                    entry.runtime_data["client"],
+                    instance_id,
+                )
             )
 
     async_add_entities(entities, update_before_add=True)
@@ -160,3 +177,51 @@ class EcoModeSwitchEntity(
             return
         set_fn = self.entity_description.set_fn
         await self.coordinator.set_data(lambda config: set_fn(config, False))
+
+
+class ManualSchedulesSwitchEntity(
+    CoordinatorEntity[CloudChargeManualSchedulesCoordinator], SwitchEntity
+):
+    """Switch entity for enabling/disabling manual charging schedules."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        connector_id: str,
+        coordinator: CloudChargeManualSchedulesCoordinator,
+        device: ConnectorDevice,
+        client: CloudChargeAPIClient,
+        instance_id: str,
+    ) -> None:
+        """Initialize the switch entity."""
+        super().__init__(coordinator)
+        self.coordinator = coordinator
+        self._attr_unique_id = f"{instance_id}_{connector_id}_manual_schedules_enabled"
+        self._attr_translation_key = "defa_power_manual_schedules_enabled"
+        self._attr_icon = "mdi:calendar-clock"
+        self._attr_device_info = device.get_device_info()
+        self.connector_id = connector_id
+        self.client = client
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return self.coordinator.last_update_success
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return true if manual schedules are enabled."""
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.get("schedulingEnabled", False)
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Enable manual schedules."""
+        await self.client.async_set_manual_schedules_enabled(self.connector_id, True)
+        await self.coordinator.async_refresh()
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Disable manual schedules."""
+        await self.client.async_set_manual_schedules_enabled(self.connector_id, False)
+        await self.coordinator.async_refresh()

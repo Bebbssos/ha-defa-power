@@ -39,6 +39,8 @@ class Capabilities(TypedDict, total=False):
 
     ecoMode: bool
     solar: bool
+    maxPower: bool
+    manualSchedules: bool
     accessControl: bool
     loadBalancing: bool
     bluetoothNetworkSetup: bool
@@ -226,3 +228,51 @@ class EcoModeConfiguration(EcoModeConfigurationBase):
     percentageNotToCharge: int | None
     schedule: list[int]
     scheduleOverridden: bool
+
+
+class ManualSchedule(TypedDict, total=False):
+    """A single manual charge schedule."""
+
+    id: int
+    days: list[str]
+    start: str
+    stop: str
+    enabled: bool
+    priority: float
+
+
+class ManualSchedules(TypedDict, total=False):
+    """Response from the manual-schedules endpoint."""
+
+    schedulingEnabled: bool
+    scheduleOverridden: bool
+    schedules: list[ManualSchedule]
+
+
+class SchedulePeriod(TypedDict, total=False):
+    """A single period within an active schedule."""
+
+    startOfPeriod: int
+    limit: float
+
+
+class ActiveSchedule(TypedDict, total=False):
+    """Schedule embedded in ActiveScheduleSettings."""
+
+    type: str
+    startOfSchedule: str
+    schedulePeriods: list[SchedulePeriod]
+
+
+class ActiveScheduleSettings(TypedDict, total=False):
+    """Response from the schedule/active-settings and schedule/override endpoints."""
+
+    active: list[str]
+    capable: list[str]
+    overrideSmartCharging: bool
+    pausedBy: str | None
+    pausedUntil: str | None
+    schedule: ActiveSchedule
+    startOfSession: int
+    previousEcoModePickup: str | None
+    quartersToCharge: list

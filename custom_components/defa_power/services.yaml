@@ -107,3 +107,131 @@ reset_charger:
             - "soft"
             - "hard"
       default: "soft"
+
+set_manual_schedules_enabled:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: defa_power
+    enabled:
+      required: true
+      selector:
+        boolean:
+
+override_schedule:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: defa_power
+
+get_manual_schedules:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: defa_power
+
+create_manual_schedule:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: defa_power
+    days:
+      required: true
+      selector:
+        select:
+          multiple: true
+          options:
+            - "MONDAY"
+            - "TUESDAY"
+            - "WEDNESDAY"
+            - "THURSDAY"
+            - "FRIDAY"
+            - "SATURDAY"
+            - "SUNDAY"
+    start:
+      required: true
+      selector:
+        time:
+    stop:
+      required: true
+      selector:
+        time:
+    enabled:
+      required: true
+      default: true
+      selector:
+        boolean:
+    priority:
+      required: true
+      default: 0
+      selector:
+        number:
+          step: 1
+
+update_manual_schedule:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: defa_power
+    schedule_id:
+      required: true
+      selector:
+        number:
+          min: 1
+          step: 1
+    days:
+      required: true
+      selector:
+        select:
+          multiple: true
+          options:
+            - "MONDAY"
+            - "TUESDAY"
+            - "WEDNESDAY"
+            - "THURSDAY"
+            - "FRIDAY"
+            - "SATURDAY"
+            - "SUNDAY"
+    start:
+      required: true
+      selector:
+        time:
+    stop:
+      required: true
+      selector:
+        time:
+    enabled:
+      required: true
+      default: true
+      selector:
+        boolean:
+    priority:
+      required: true
+      default: 0
+      selector:
+        number:
+          step: 1
+
+delete_manual_schedule:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: defa_power
+    schedule_id:
+      required: true
+      selector:
+        number:
+          min: 1
+          step: 1
