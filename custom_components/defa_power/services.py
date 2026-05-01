@@ -122,8 +122,8 @@ CREATE_MANUAL_SCHEDULE_SCHEMA = vol.Schema(
         vol.Required("days"): vol.All(cv.ensure_list, [vol.In(DAYS_OF_WEEK)]),
         vol.Required("start"): cv.time,
         vol.Required("stop"): cv.time,
-        vol.Required("enabled"): cv.boolean,
-        vol.Optional("priority", default=0): vol.Coerce(float),
+        vol.Required("enabled", default=True): cv.boolean,
+        vol.Required("priority", default=0): vol.Coerce(float),
     }
 )
 
@@ -134,8 +134,8 @@ UPDATE_MANUAL_SCHEDULE_SCHEMA = vol.Schema(
         vol.Required("days"): vol.All(cv.ensure_list, [vol.In(DAYS_OF_WEEK)]),
         vol.Required("start"): cv.time,
         vol.Required("stop"): cv.time,
-        vol.Required("enabled"): cv.boolean,
-        vol.Required("priority"): vol.Coerce(float),
+        vol.Required("enabled", default=True): cv.boolean,
+        vol.Required("priority", default=0): vol.Coerce(float),
     }
 )
 

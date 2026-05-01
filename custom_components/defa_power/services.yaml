@@ -166,10 +166,11 @@ create_manual_schedule:
         time:
     enabled:
       required: true
+      default: true
       selector:
         boolean:
     priority:
-      required: false
+      required: true
       default: 0
       selector:
         number:
@@ -211,10 +212,12 @@ update_manual_schedule:
         time:
     enabled:
       required: true
+      default: true
       selector:
         boolean:
     priority:
       required: true
+      default: 0
       selector:
         number:
           step: 1
