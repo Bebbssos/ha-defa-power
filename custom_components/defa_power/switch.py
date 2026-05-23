@@ -7,6 +7,7 @@ from typing import Any
 
 from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DefaPowerConfigEntry
@@ -31,15 +32,16 @@ class DefaPowerEcoModeSwitchDescription(SwitchEntityDescription):
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: DefaPowerConfigEntry, async_add_entities
+    hass: HomeAssistant, entry: DefaPowerConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback
 ):
     """Set up the switch platform."""
     instance_id = entry.data.get("instance_id") or "default"
-    entities = []
 
     for connector_id, val in entry.runtime_data["connectors"].items():
+        subentry_id = val["subentry_id"]
+        entities = []
+
         if val["capabilities"]["ecoMode"]:
-            # Add eco mode switches if eco mode is supported by the connector
             eco_mode_coordinator = val["eco_mode_coordinator"]
             assert eco_mode_coordinator is not None
 
@@ -69,7 +71,8 @@ async def async_setup_entry(
                 )
             )
 
-    async_add_entities(entities, update_before_add=True)
+        if entities:
+            async_add_entities(entities, update_before_add=True, config_subentry_id=subentry_id)
 
 
 def set_eco_mode_active(config: EcoModeConfiguration, active: bool) -> None:

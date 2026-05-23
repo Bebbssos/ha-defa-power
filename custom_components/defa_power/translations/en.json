@@ -34,6 +34,14 @@
           "user_id": "User-id",
           "token": "Token"
         }
+      },
+      "select_devices": {
+        "title": "Add your chargers",
+        "description": "Select which connectors to add.\n\nChargepoints are the physical units your connectors are attached to. You usually do not need to add them separately — they have no functionality on their own and are only used to group connectors together. You can add or remove everything later from the integration page.",
+        "data": {
+          "connector_keys": "Connectors",
+          "chargepoint_keys": "Chargepoints (optional)"
+        }
       }
     },
     "abort": {
@@ -52,6 +60,48 @@
       "manual_entry_request_error": "Request error",
       "manual_entry_auth_error": "Invalid user-id or token",
       "unknown": "Unknown error occurred"
+    }
+  },
+  "config_subentries": {
+    "connector": {
+      "initiate_flow": {
+        "user": "Add connector"
+      },
+      "entry_type": "Connector",
+      "step": {
+        "user": {
+          "title": "Add connector",
+          "description": "Select a connector to add. Only connectors not already added are shown.",
+          "data": {
+            "connector_key": "Connector"
+          }
+        }
+      },
+      "abort": {
+        "already_configured": "This connector has already been added.",
+        "cannot_connect": "Could not connect to the CloudCharge API.",
+        "no_connectors_available": "No connectors available to add. All connectors may already be added."
+      }
+    },
+    "chargepoint": {
+      "initiate_flow": {
+        "user": "Add chargepoint"
+      },
+      "entry_type": "Chargepoint",
+      "step": {
+        "user": {
+          "title": "Add chargepoint",
+          "description": "Select a chargepoint to add. Only chargepoints not already added are shown.",
+          "data": {
+            "chargepoint_key": "Chargepoint"
+          }
+        }
+      },
+      "abort": {
+        "already_configured": "This chargepoint has already been added.",
+        "cannot_connect": "Could not connect to the CloudCharge API.",
+        "no_chargepoints_available": "No chargepoints available to add. All chargepoints may already be added."
+      }
     }
   },
   "options": {

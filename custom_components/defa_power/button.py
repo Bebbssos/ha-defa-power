@@ -11,6 +11,7 @@ from homeassistant.components.button import (
     ButtonEntityDescription,
 )
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DefaPowerConfigEntry
@@ -72,14 +73,15 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: tuple[
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: DefaPowerConfigEntry, async_add_entities
+    hass: HomeAssistant, entry: DefaPowerConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback
 ):
     """Set up the sensor platform."""
 
     instance_id = entry.data.get("instance_id") or "default"
-    entities: list[ButtonEntity] = []
 
     for connector_id, val in entry.runtime_data["connectors"].items():
+        subentry_id = val["subentry_id"]
+        entities: list[ButtonEntity] = []
         operational_data_coordinator = val["operational_data_coordinator"]
         entities.extend(
             ChargeStartStopButton(
@@ -112,7 +114,7 @@ async def async_setup_entry(
                 )
             )
 
-    async_add_entities(entities, update_before_add=True)
+        async_add_entities(entities, update_before_add=True, config_subentry_id=subentry_id)
 
 
 class ChargeStartStopButton(CoordinatorEntity, ButtonEntity):

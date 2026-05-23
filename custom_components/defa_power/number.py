@@ -12,6 +12,7 @@ from homeassistant.components.number import (
 from homeassistant.const import UnitOfElectricCurrent, UnitOfTime
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DefaPowerConfigEntry
@@ -81,22 +82,21 @@ DEFA_POWER_CONNECTOR_NUMBER_TYPES: tuple[DefaPowerConnectorNumberDescription, ..
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: DefaPowerConfigEntry, async_add_entities
+    hass: HomeAssistant, entry: DefaPowerConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback
 ):
     """Set up the number platform."""
 
     instance_id = entry.data.get("instance_id") or "default"
-    entities: list[NumberEntity] = []
 
     client = entry.runtime_data["client"]
 
-    # Set up regular DEFA Power connector number entities
     for connector_id, val in entry.runtime_data["connectors"].items():
-        # Add standard number entities (current limit)
+        subentry_id = val["subentry_id"]
+        entities: list[NumberEntity] = []
+
         for description in DEFA_POWER_CONNECTOR_NUMBER_TYPES:
             description_dict = description.__dict__.copy()
 
-            # Update min/max values if get_limits_fn is provided
             if description.get_limits_fn:
                 min_limit, max_limit = await description.get_limits_fn(
                     client, connector_id
@@ -104,7 +104,6 @@ async def async_setup_entry(
                 description_dict["native_min_value"] = min_limit
                 description_dict["native_max_value"] = max_limit
 
-            # Create a new instance with updated values
             entity_description = DefaPowerConnectorNumberDescription(**description_dict)
 
             chargepoint_id = val["chargepoint_id"]
@@ -142,7 +141,6 @@ async def async_setup_entry(
             )
 
         if val["capabilities"]["ecoMode"]:
-            # Add eco mode number entities if eco mode is supported by the connector
             eco_mode_coordinator = val["eco_mode_coordinator"]
             assert eco_mode_coordinator is not None
             entities.extend(
@@ -157,7 +155,8 @@ async def async_setup_entry(
                 for description in ECO_MODE_NUMBER_TYPES
             )
 
-    async_add_entities(entities, update_before_add=True)
+        if entities:
+            async_add_entities(entities, update_before_add=True, config_subentry_id=subentry_id)
 
 
 class DefaConnectorNumberEntity(CoordinatorEntity, NumberEntity):

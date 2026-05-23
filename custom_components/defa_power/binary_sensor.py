@@ -9,6 +9,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntityDescription,
 )
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DefaPowerConfigEntry
@@ -41,18 +42,19 @@ DEFA_POWER_ACTIVE_SCHEDULE_BINARY_SENSOR_TYPES: tuple[
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: DefaPowerConfigEntry, async_add_entities
+    hass: HomeAssistant, entry: DefaPowerConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback
 ):
     """Set up the binary sensor platform."""
     instance_id = entry.data.get("instance_id") or "default"
-    entities: list[BinarySensorEntity] = []
 
     for connector_id, val in entry.runtime_data["connectors"].items():
         if not val["capabilities"]["manualSchedules"]:
             continue
+        subentry_id = val["subentry_id"]
         active_schedule_coordinator = val["active_schedule_coordinator"]
         assert active_schedule_coordinator is not None
 
+        entities: list[BinarySensorEntity] = []
         for description in DEFA_POWER_ACTIVE_SCHEDULE_BINARY_SENSOR_TYPES:
             if description.value_fn is None:
                 continue
@@ -79,7 +81,8 @@ async def async_setup_entry(
                 )
             )
 
-    async_add_entities(entities, update_before_add=True)
+        if entities:
+            async_add_entities(entities, update_before_add=True, config_subentry_id=subentry_id)
 
 
 class ActiveScheduleBinarySensorEntity(

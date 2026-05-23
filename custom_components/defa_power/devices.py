@@ -23,7 +23,7 @@ class ChargePointDevice:
 class ConnectorDevice:
     """Representation of a DEFA Power connector device."""
 
-    def __init__(self, data, instance_id, alias) -> None:
+    def __init__(self, data, instance_id, alias, chargepoint_registered: bool = False) -> None:
         """Initialize the device."""
         self._device_info = DeviceInfo(
             identifiers={(DOMAIN, instance_id, data["id"])},  # type: ignore[arg-type]
@@ -32,7 +32,11 @@ class ConnectorDevice:
             name=data.get("displayName") or alias or data["id"],
             sw_version=data["firmwareVersion"],
             serial_number=data["serialNumber"],
-            via_device=(DOMAIN, instance_id, data["chargepoint_id"]),  # type: ignore[arg-type]
+            **(
+                {"via_device": (DOMAIN, instance_id, data["chargepoint_id"])}  # type: ignore[misc]
+                if chargepoint_registered
+                else {}
+            ),
         )
 
     def get_device_info(self):

@@ -21,6 +21,8 @@ class RuntimeDataChargePoint(TypedDict):
     device: ChargePointDevice
     coordinator: CloudChargeChargepointCoordinator
     skipped_entities: list[str]
+    has_subentry: bool
+    subentry_id: str | None
 
 
 class RuntimeDataConnectorCapabilities(TypedDict):
@@ -42,6 +44,8 @@ class RuntimeDataConnector(TypedDict):
     capabilities: RuntimeDataConnectorCapabilities
     chargepoint_id: str
     skipped_entities: list[str]
+    subentry_id: str | None
+    connection_type: str
 
 
 class RuntimeData(TypedDict):

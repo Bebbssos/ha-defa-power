@@ -14,6 +14,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import UnitOfEnergy, UnitOfPower
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 import homeassistant.util.dt as dt_util
 
@@ -235,14 +236,17 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: tuple[DefaPowerConnectorSensorDescription, ..
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: DefaPowerConfigEntry, async_add_entities
+    hass: HomeAssistant, entry: DefaPowerConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback
 ):
     """Set up the sensor platform."""
 
     instance_id = entry.data.get("instance_id") or "default"
-    entities: list[SensorEntity] = []
 
     for chargepoint_id, val in entry.runtime_data["chargepoints"].items():
+        if not val.get("has_subentry"):
+            continue
+        subentry_id = val["subentry_id"]
+        entities: list[SensorEntity] = []
         for sensor_type in DEFA_POWER_CHARGEPOINT_SENSOR_TYPES:
             if sensor_type.value_fn is None:
                 _LOGGER.warning(
@@ -272,7 +276,12 @@ async def async_setup_entry(
                 )
             )
 
+        if entities:
+            async_add_entities(entities, update_before_add=True, config_subentry_id=subentry_id)
+
     for connector_id, val in entry.runtime_data["connectors"].items():
+        subentry_id = val["subentry_id"]
+        entities = []
         for sensor_type in DEFA_POWER_CONNECTOR_SENSOR_TYPES:
             if sensor_type.value_fn is None:
                 _LOGGER.warning(
@@ -310,12 +319,17 @@ async def async_setup_entry(
                 )
             )
 
+        if entities:
+            async_add_entities(entities, update_before_add=True, config_subentry_id=subentry_id)
+
     for connector_id, val in entry.runtime_data["connectors"].items():
         if not val["capabilities"]["manualSchedules"]:
             continue
+        subentry_id = val["subentry_id"]
         active_schedule_coordinator = val["active_schedule_coordinator"]
         assert active_schedule_coordinator is not None
 
+        entities = []
         for sensor_type in DEFA_POWER_ACTIVE_SCHEDULE_SENSOR_TYPES:
             if sensor_type.value_fn is None:
                 continue
@@ -341,7 +355,8 @@ async def async_setup_entry(
                 )
             )
 
-    async_add_entities(entities, update_before_add=True)
+        if entities:
+            async_add_entities(entities, update_before_add=True, config_subentry_id=subentry_id)
 
 
 class DefaChargePointEntity(CoordinatorEntity, SensorEntity):

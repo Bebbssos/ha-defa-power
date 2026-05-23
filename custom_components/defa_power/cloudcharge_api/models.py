@@ -276,3 +276,65 @@ class ActiveScheduleSettings(TypedDict, total=False):
     startOfSession: int
     previousEcoModePickup: str | None
     quartersToCharge: list
+
+
+class CarModel(TypedDict, total=False):
+    """Car model within a user car."""
+
+    name: str
+    slug: str
+    maxEffect: int
+    connector: str
+    batteryCapacity: int
+    imageUrl: str
+    fastChargeConnector: list[str]
+
+
+class UserCar(TypedDict, total=False):
+    """User car entry."""
+
+    carId: str
+    carModel: CarModel
+    nickName: str | None
+    carMake: str
+    carType: str
+    forceBusinessTrans: bool
+    modelYear: Any | None
+
+
+class UserProfile(TypedDict, total=False):
+    """User profile response from /profile endpoint."""
+
+    id: str
+    phonenr: str
+    groups: list[Any]  # internal structure unknown
+    discounts: dict[str, Any]  # internal structure unknown
+    rfidCards: list[Any]  # internal structure unknown
+    sessionCounter: int
+    totalTime: float
+    energy: int
+    faultCounter: int
+    firstName: str
+    lastName: str
+    contactEmail: str
+    invoiceEmail: str
+    invoiceAddressStreet: str | None
+    invoiceAddressZip: str | None
+    invoiceAddressCountry: str | None
+    invoiceAddressCity: str | None
+    acceptedAgreement: bool
+    classifyBusinessCardAsBusiness: Any | None
+    lastDayOfMonthReceiptSummary: Any | None
+    notificationStopCharge: bool
+    notificationCancelCharge: bool
+    notificationHomeChargerError: bool
+    notificationHomeChargerUsed: bool
+    notificationEcoMode: bool
+    uiLanguage: str
+    favorites: list[Any]  # internal structure unknown
+    acceptedNewsletter: Any | None
+    firebaseToken: str
+    rfidCardMap: dict[str, Any]  # internal structure unknown
+    stripeCardMap: dict[str, Any]  # internal structure unknown
+    appSettings: dict[str, Any]
+    userCarMap: dict[str, UserCar]

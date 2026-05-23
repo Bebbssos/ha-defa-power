@@ -24,6 +24,7 @@ from .models import (
     NetworkConfiguration,
     OperationalData,
     PrivateChargePoint,
+    UserProfile,
 )
 
 
@@ -514,6 +515,21 @@ class CloudChargeAPIClient:
     def import_credentials(self, credentials: CloudChargeApiCredentials):
         """Import cloud charge api credentials."""
         self.set_login(credentials["user_id"], credentials["token"])
+
+    async def async_get_profile(self) -> UserProfile:
+        """Get user profile. Login required."""
+        self.__check_logged_in()
+
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
+                f"{self.__base_url}/profile",
+                headers=self.__headers,
+                params={"version": "2.55.0"},
+            ) as response,
+        ):
+            await self.__async_check_response(response)
+            return await response.json()
 
     async def async_import_and_validate_credentials(
         self, credentials: CloudChargeApiCredentials

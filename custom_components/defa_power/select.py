@@ -4,6 +4,7 @@ import logging
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DefaPowerConfigEntry
@@ -15,39 +16,38 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: DefaPowerConfigEntry, async_add_entities
+    hass: HomeAssistant, entry: DefaPowerConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback
 ):
     """Set up the sensor platform."""
 
     instance_id = entry.data.get("instance_id") or "default"
-    entities: list[SelectEntity] = []
 
     for connector_id, val in entry.runtime_data["connectors"].items():
-        if val["capabilities"]["ecoMode"]:
-            # Add eco mode selects if eco mode is supported by the connector
-            eco_mode_coordinator = val["eco_mode_coordinator"]
-            assert eco_mode_coordinator is not None
-            entities.extend(
-                EcoModeWeekDayScheduleSelect(
-                    connector_id,
-                    eco_mode_coordinator,
-                    val["device"],
-                    entry.runtime_data["client"],
-                    instance_id,
-                    weekday,
-                )
-                for weekday in [
-                    "monday",
-                    "tuesday",
-                    "wednesday",
-                    "thursday",
-                    "friday",
-                    "saturday",
-                    "sunday",
-                ]
+        if not val["capabilities"]["ecoMode"]:
+            continue
+        subentry_id = val["subentry_id"]
+        eco_mode_coordinator = val["eco_mode_coordinator"]
+        assert eco_mode_coordinator is not None
+        entities: list[SelectEntity] = [
+            EcoModeWeekDayScheduleSelect(
+                connector_id,
+                eco_mode_coordinator,
+                val["device"],
+                entry.runtime_data["client"],
+                instance_id,
+                weekday,
             )
-
-    async_add_entities(entities, update_before_add=True)
+            for weekday in [
+                "monday",
+                "tuesday",
+                "wednesday",
+                "thursday",
+                "friday",
+                "saturday",
+                "sunday",
+            ]
+        ]
+        async_add_entities(entities, update_before_add=True, config_subentry_id=subentry_id)
 
 
 class EcoModeWeekDayScheduleSelect(

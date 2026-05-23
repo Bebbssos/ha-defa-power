@@ -9,9 +9,11 @@ import uuid
 import voluptuous as vol
 
 from homeassistant import config_entries, core
-from homeassistant.config_entries import ConfigFlowResult
+from homeassistant.config_entries import ConfigFlowResult, ConfigSubentryFlow
+from homeassistant.core import callback
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.selector import (
+    SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
@@ -109,6 +111,10 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     MINOR_VERSION = 1
 
     send_code_data: dict[str, Any] | None
+    _login_data: dict[str, Any] | None = None
+    _profile_name: str | None = None
+    _connector_options: list[SelectOptionDict] | None = None
+    _chargepoint_options: list[SelectOptionDict] | None = None
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """Handle the initial step."""
@@ -237,7 +243,7 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "phonenumber_request_error"
 
             if not errors:
-                return self.__add_or_update_entry(data)
+                return await self._async_finish_login(data)
 
         return self.async_show_form(
             step_id="sms_code", data_schema=AUTH_SCHEMA, errors=errors
@@ -263,23 +269,115 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "manual_entry_request_error"
 
             if not errors:
-                return self.__add_or_update_entry(data)
+                return await self._async_finish_login(data)
 
         return self.async_show_form(
             step_id="manual_entry", data_schema=MANUAL_ENTRY_SCHEMA, errors=errors
         )
 
+    async def _async_finish_login(self, data: dict[str, Any]):
+        """Shared post-login handler: fetch profile, then route to device selection or update."""
+        self._login_data = data
+        client = CloudChargeAPIClient(API_BASE_URL)
+        client.import_credentials(data["credentials"])
+        try:
+            profile = await client.async_get_profile()
+            first = (profile.get("firstName") or "").strip()
+            last = (profile.get("lastName") or "").strip()
+            name = f"{first} {last}".strip()
+            self._profile_name = f"CloudCharge ({name})" if name else None
+        except CloudChargeAPIError:
+            self._profile_name = None
+
+        if self.source in (config_entries.SOURCE_RECONFIGURE, config_entries.SOURCE_REAUTH):
+            return self.__add_or_update_entry(data)
+        return await self.async_step_select_devices()
+
+    async def async_step_select_devices(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Select which connectors to add during initial setup."""
+        if self._connector_options is None:
+            client = CloudChargeAPIClient(API_BASE_URL)
+            assert self._login_data is not None
+            client.import_credentials(self._login_data["credentials"])
+            try:
+                chargepoint_ids = await client.async_get_chargepoint_ids()
+                conn_options: list[SelectOptionDict] = []
+                cp_options: list[SelectOptionDict] = []
+                for cp_id in chargepoint_ids:
+                    cp_data = await client.async_get_chargepoint(cp_id)
+                    cp_name = cp_data.get("displayName") or cp_id
+                    cp_options.append(SelectOptionDict(value=cp_id, label=cp_name))
+                    for alias, val in (cp_data.get("aliasMap") or {}).items():
+                        conn_id = val.get("id")
+                        if not conn_id:
+                            continue
+                        conn_name = val.get("displayName") or alias
+                        key = f"{conn_id}:{cp_id}"
+                        conn_options.append(SelectOptionDict(value=key, label=f"{conn_name} ({cp_name})"))
+                self._connector_options = conn_options
+                self._chargepoint_options = cp_options
+            except CloudChargeAPIError:
+                self._connector_options = []
+                self._chargepoint_options = []
+
+        if not self._connector_options and not self._chargepoint_options:
+            assert self._login_data is not None
+            self._login_data["initial_connector_ids"] = []
+            self._login_data["initial_chargepoint_ids"] = []
+            return self.__add_or_update_entry(self._login_data)
+
+        if user_input is not None:
+            selected_connectors = user_input.get("connector_keys") or []
+            selected_chargepoints = user_input.get("chargepoint_keys") or []
+            assert self._login_data is not None
+            self._login_data["initial_connector_ids"] = [
+                {"connector_id": k.split(":")[0], "chargepoint_id": k.split(":")[1]}
+                for k in selected_connectors
+            ]
+            self._login_data["initial_chargepoint_ids"] = selected_chargepoints
+            return self.__add_or_update_entry(self._login_data)
+
+        schema_fields: dict = {
+            vol.Optional("connector_keys", default=[]): SelectSelector(
+                SelectSelectorConfig(
+                    options=self._connector_options or [],
+                    multiple=True,
+                    mode=SelectSelectorMode.LIST,
+                )
+            ),
+        }
+        if self._chargepoint_options:
+            schema_fields[vol.Optional("chargepoint_keys", default=[])] = SelectSelector(
+                SelectSelectorConfig(
+                    options=self._chargepoint_options,
+                    multiple=True,
+                    mode=SelectSelectorMode.LIST,
+                )
+            )
+
+        return self.async_show_form(
+            step_id="select_devices",
+            data_schema=vol.Schema(schema_fields),
+        )
+
     def __add_or_update_entry(self, data: dict[str, Any]):
+        title = self._profile_name or NAME
+
         if self.source in (
             config_entries.SOURCE_RECONFIGURE,
             config_entries.SOURCE_REAUTH,
         ):
             if self.source == config_entries.SOURCE_RECONFIGURE:
                 entry = self._get_reconfigure_entry()
+                reason = "reconfigure_successful"
             elif self.source == config_entries.SOURCE_REAUTH:
                 entry = self._get_reauth_entry()
+                reason = "reauth_successful"
             else:
                 entry = None
+                reason = "reauth_successful"
 
             if not entry:
                 return self.async_abort(reason="existing_entry_not_found")
@@ -289,10 +387,23 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_update_reload_and_abort(
                 entry,
                 data_updates=data,
+                title=title,
+                reason=reason,
             )
 
         data["instance_id"] = get_instance_id()
-        return self.async_create_entry(title=NAME, data=data)
+        return self.async_create_entry(title=title, data=data)
+
+    @classmethod
+    @callback
+    def async_get_supported_subentry_types(
+        cls, config_entry: config_entries.ConfigEntry
+    ) -> dict[str, type[ConfigSubentryFlow]]:
+        """Return subentry types supported by this integration."""
+        return {
+            "connector": ConnectorSubentryFlowHandler,
+            "chargepoint": ChargepointSubentryFlowHandler,
+        }
 
     @staticmethod
     @core.callback
@@ -301,6 +412,171 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> config_entries.OptionsFlow:
         """Create the options flow."""
         return DefaPowerOptionsFlowHandler(config_entry)
+
+
+class ConnectorSubentryFlowHandler(ConfigSubentryFlow):
+    """Handle adding a connector subentry."""
+
+    _options: list[SelectOptionDict] | None = None
+    _titles: dict[str, str] | None = None
+
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.SubentryFlowResult:
+        """Handle the user step."""
+        entry = self._get_entry()
+
+        if self._options is None:
+            try:
+                options, titles = await self._fetch_connector_options(entry)
+            except CloudChargeAPIError as err:
+                _LOGGER.error("Failed to fetch connectors for subentry flow: %s", err)
+                return self.async_abort(reason="cannot_connect")
+
+            if not options:
+                return self.async_abort(reason="no_connectors_available")
+
+            self._options = options
+            self._titles = titles
+
+        if user_input is not None:
+            key = user_input["connector_key"]
+            connector_id, chargepoint_id = key.split(":", 1)
+            title = (self._titles or {}).get(key, connector_id)
+            return self.async_create_entry(
+                title=title,
+                data={"connector_id": connector_id, "chargepoint_id": chargepoint_id, "connection_type": "cloudcharge"},
+                unique_id=connector_id,
+            )
+
+        assert self._options is not None
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("connector_key"): SelectSelector(
+                        SelectSelectorConfig(
+                            options=self._options,
+                            mode=SelectSelectorMode.LIST,
+                        )
+                    )
+                }
+            ),
+        )
+
+    async def _fetch_connector_options(
+        self, entry: config_entries.ConfigEntry
+    ) -> tuple[list[SelectOptionDict], dict[str, str]]:
+        """Fetch available connectors, excluding already-added ones."""
+        client = CloudChargeAPIClient(API_BASE_URL)
+        client.import_credentials(entry.data["credentials"])
+
+        already_added = {
+            sub.data["connector_id"]
+            for sub in entry.subentries.values()
+            if sub.subentry_type == "connector"
+        }
+
+        chargepoint_ids = await client.async_get_chargepoint_ids()
+        options: list[SelectOptionDict] = []
+        titles: dict[str, str] = {}
+
+        for cp_id in chargepoint_ids:
+            cp_data = await client.async_get_chargepoint(cp_id)
+            cp_name = cp_data.get("displayName") or cp_id
+            for alias, val in (cp_data.get("aliasMap") or {}).items():
+                conn_id = val.get("id")
+                if not conn_id or conn_id in already_added:
+                    continue
+                conn_name = val.get("displayName") or alias
+                key = f"{conn_id}:{cp_id}"
+                label = f"{conn_name} ({cp_name})"
+                options.append(SelectOptionDict(value=key, label=label))
+                titles[key] = label
+
+        return options, titles
+
+
+class ChargepointSubentryFlowHandler(ConfigSubentryFlow):
+    """Handle adding a chargepoint subentry."""
+
+    _options: list[SelectOptionDict] | None = None
+    _titles: dict[str, str] | None = None
+
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.SubentryFlowResult:
+        """Handle the user step."""
+        entry = self._get_entry()
+
+        if self._options is None:
+            try:
+                options, titles = await self._fetch_chargepoint_options(entry)
+            except CloudChargeAPIError as err:
+                _LOGGER.error(
+                    "Failed to fetch chargepoints for subentry flow: %s", err
+                )
+                return self.async_abort(reason="cannot_connect")
+
+            if not options:
+                return self.async_abort(reason="no_chargepoints_available")
+
+            self._options = options
+            self._titles = titles
+
+        if user_input is not None:
+            cp_id = user_input["chargepoint_key"]
+            title = (self._titles or {}).get(cp_id, cp_id)
+            return self.async_create_entry(
+                title=title,
+                data={"chargepoint_id": cp_id},
+                unique_id=cp_id,
+            )
+
+        assert self._options is not None
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("chargepoint_key"): SelectSelector(
+                        SelectSelectorConfig(
+                            options=self._options,
+                            mode=SelectSelectorMode.LIST,
+                        )
+                    )
+                }
+            ),
+        )
+
+    async def _fetch_chargepoint_options(
+        self, entry: config_entries.ConfigEntry
+    ) -> tuple[list[SelectOptionDict], dict[str, str]]:
+        """Fetch available chargepoints, excluding already-added ones."""
+        client = CloudChargeAPIClient(API_BASE_URL)
+        client.import_credentials(entry.data["credentials"])
+
+        already_added = {
+            sub.data["chargepoint_id"]
+            for sub in entry.subentries.values()
+            if sub.subentry_type == "chargepoint"
+        }
+
+        chargepoint_ids = await client.async_get_chargepoint_ids()
+        options: list[SelectOptionDict] = []
+        titles: dict[str, str] = {}
+
+        for cp_id in chargepoint_ids:
+            if cp_id in already_added:
+                continue
+            try:
+                cp_data = await client.async_get_chargepoint(cp_id)
+                cp_name = cp_data.get("displayName") or cp_id
+            except CloudChargeAPIError:
+                cp_name = cp_id
+            options.append(SelectOptionDict(value=cp_id, label=cp_name))
+            titles[cp_id] = cp_name
+
+        return options, titles
 
 
 class DefaPowerOptionsFlowHandler(config_entries.OptionsFlow):

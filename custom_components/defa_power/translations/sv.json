@@ -34,6 +34,14 @@
                     "user_id": "Användar-id",
                     "token": "Token"
                 }
+            },
+            "select_devices": {
+                "title": "Lägg till dina laddare",
+                "description": "Välj vilka kontakter du vill lägga till.\n\nLaddpunkter är de fysiska enheterna som dina kontakter är kopplade till. Du behöver vanligtvis inte lägga till dem separat – de har ingen egen funktionalitet och används bara för att gruppera kontakter. Du kan lägga till eller ta bort allt senare från integrationssidan.",
+                "data": {
+                    "connector_keys": "Kontakter",
+                    "chargepoint_keys": "Laddpunkter (valfritt)"
+                }
             }
         },
         "abort": {
@@ -52,6 +60,48 @@
             "manual_entry_request_error": "Begäran misslyckades",
             "manual_entry_auth_error": "Ogiltigt användar-id eller token",
             "unknown": "Okänt fel inträffade"
+        }
+    },
+    "config_subentries": {
+        "connector": {
+            "initiate_flow": {
+                "user": "Lägg till kontakt"
+            },
+            "entry_type": "Kontakt",
+            "step": {
+                "user": {
+                    "title": "Lägg till kontakt",
+                    "description": "Välj en kontakt att lägga till. Endast kontakter som inte redan lagts till visas.",
+                    "data": {
+                        "connector_key": "Kontakt"
+                    }
+                }
+            },
+            "abort": {
+                "already_configured": "Den här kontakten har redan lagts till.",
+                "cannot_connect": "Kunde inte ansluta till CloudCharge API.",
+                "no_connectors_available": "Inga kontakter tillgängliga att lägga till. Alla kontakter kanske redan är tillagda."
+            }
+        },
+        "chargepoint": {
+            "initiate_flow": {
+                "user": "Lägg till laddpunkt"
+            },
+            "entry_type": "Laddpunkt",
+            "step": {
+                "user": {
+                    "title": "Lägg till laddpunkt",
+                    "description": "Välj en laddpunkt att lägga till. Endast laddpunkter som inte redan lagts till visas.",
+                    "data": {
+                        "chargepoint_key": "Laddpunkt"
+                    }
+                }
+            },
+            "abort": {
+                "already_configured": "Den här laddpunkten har redan lagts till.",
+                "cannot_connect": "Kunde inte ansluta till CloudCharge API.",
+                "no_chargepoints_available": "Inga laddpunkter tillgängliga att lägga till. Alla laddpunkter kanske redan är tillagda."
+            }
         }
     },
     "options": {
