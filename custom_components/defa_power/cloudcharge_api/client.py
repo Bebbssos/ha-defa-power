@@ -1,5 +1,7 @@
 """CloudCharge API client."""
 
+import asyncio
+import time
 from contextlib import asynccontextmanager
 from typing import Literal
 
@@ -27,6 +29,8 @@ from .models import (
     PrivateChargePoint,
 )
 
+_MIN_REQUEST_INTERVAL = 1.0
+
 
 # Swagger file for api can be found at https://prod.cloudcharge.se/services/user/swagger.json
 class CloudChargeAPIClient:
@@ -39,14 +43,25 @@ class CloudChargeAPIClient:
         self.__base_url = base_url
         self.__headers = {}
         self.__session: aiohttp.ClientSession | None = None
+        self.__request_lock = asyncio.Lock()
+        self.__last_request_time: float = 0.0
 
     @asynccontextmanager
     async def _session_for_use(self):
-        """Yield a shared session reused across requests via HTTP keep-alive."""
-        if self.__session is None or self.__session.closed:
-            connector = aiohttp.TCPConnector(limit=1, force_close=False)
-            self.__session = aiohttp.ClientSession(connector=connector)
-        yield self.__session
+        """Yield a shared session reused across requests via HTTP keep-alive.
+
+        Enforces a minimum interval between outgoing requests.
+        """
+        async with self.__request_lock:
+            elapsed = time.monotonic() - self.__last_request_time
+            wait = _MIN_REQUEST_INTERVAL - elapsed
+            if wait > 0:
+                await asyncio.sleep(wait)
+            if self.__session is None or self.__session.closed:
+                connector = aiohttp.TCPConnector(limit=1, force_close=False)
+                self.__session = aiohttp.ClientSession(connector=connector)
+            self.__last_request_time = time.monotonic()
+            yield self.__session
 
     async def async_close(self) -> None:
         """Close shared session if open."""
