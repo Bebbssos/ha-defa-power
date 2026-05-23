@@ -78,6 +78,14 @@ After setting up the integration, you can retrieve your user-id and token by fol
 2. Select `Configure` on the integration instance.
 3. Choose `Show current token`.
 
+### Configuring Request Throttling
+
+The CloudCharge API appears to have introduced per-token rate limiting, which can cause API calls to time out when requests are made too close together. To work around this, the integration enforces a minimum interval between outgoing API calls (default 1000 ms). If you are still seeing timeouts you can raise this value; if your account is not being throttled and you want more responsive updates you can lower it.
+
+1. Go to the DEFA Power integration in Home Assistant.
+2. Select `Configure` on the integration instance.
+3. Choose `Configure request throttling` and adjust the value.
+
 ### Available Actions (Services)
 
 The integration provides several actions (services) that can be called from automations, scripts, or the Developer Tools > Services panel in Home Assistant.

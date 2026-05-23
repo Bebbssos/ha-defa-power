@@ -69,6 +69,13 @@
           "user_id": "User-id",
           "token": "Token"
         }
+      },
+      "configure_throttling": {
+        "title": "Configure request throttling",
+        "description": "Minimum interval between outgoing API requests. The CloudCharge API throttles per token, so requests need to be spaced out. Lower values mean faster updates but more risk of being throttled. Default is 1000 ms.",
+        "data": {
+          "request_interval_ms": "Minimum interval between requests"
+        }
       }
     }
   },
@@ -88,7 +95,8 @@
     },
     "select_step": {
       "options": {
-        "show_current_token": "Show current token"
+        "show_current_token": "Show current token",
+        "configure_throttling": "Configure request throttling"
       }
     }
   },

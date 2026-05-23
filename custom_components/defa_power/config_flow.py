@@ -12,6 +12,9 @@ from homeassistant import config_entries, core
 from homeassistant.config_entries import ConfigFlowResult
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
@@ -27,7 +30,13 @@ from .cloudcharge_api.exceptions import (
     CloudChargeForbiddenErrorType,
     CloudChargeRequestError,
 )
-from .const import API_BASE_URL, DOMAIN, NAME
+from .const import (
+    API_BASE_URL,
+    CONF_REQUEST_INTERVAL_MS,
+    DEFAULT_REQUEST_INTERVAL_MS,
+    DOMAIN,
+    NAME,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -85,6 +94,7 @@ OPTIONS_CHOICE_SCHEMA = vol.Schema(
                 mode=SelectSelectorMode.LIST,
                 options=[
                     "show_current_token",
+                    "configure_throttling",
                 ],
             )
         )
@@ -316,6 +326,8 @@ class DefaPowerOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             if user_input["select_step"] == "show_current_token":
                 return await self.async_step_show_token()
+            if user_input["select_step"] == "configure_throttling":
+                return await self.async_step_configure_throttling()
 
         return self.async_show_form(
             step_id="init",
@@ -341,6 +353,39 @@ class DefaPowerOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_TOKEN,
                         default=self.config_entry.data["credentials"]["token"],
                     ): cv.string,
+                }
+            ),
+        )
+
+    async def async_step_configure_throttling(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Configure the minimum interval between API requests."""
+        if user_input is not None:
+            new_options = {
+                **self.config_entry.options,
+                CONF_REQUEST_INTERVAL_MS: int(user_input[CONF_REQUEST_INTERVAL_MS]),
+            }
+            return self.async_create_entry(title="", data=new_options)
+
+        current = self.config_entry.options.get(
+            CONF_REQUEST_INTERVAL_MS, DEFAULT_REQUEST_INTERVAL_MS
+        )
+        return self.async_show_form(
+            step_id="configure_throttling",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_REQUEST_INTERVAL_MS, default=current
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=0,
+                            max=60000,
+                            step=100,
+                            unit_of_measurement="ms",
+                            mode=NumberSelectorMode.BOX,
+                        )
+                    )
                 }
             ),
         )

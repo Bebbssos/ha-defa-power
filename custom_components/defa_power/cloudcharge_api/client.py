@@ -29,22 +29,24 @@ from .models import (
     PrivateChargePoint,
 )
 
-_MIN_REQUEST_INTERVAL = 1.0
-
-
 # Swagger file for api can be found at https://prod.cloudcharge.se/services/user/swagger.json
 class CloudChargeAPIClient:
     """CloudCharge API client."""
 
     __logged_in = False
 
-    def __init__(self, base_url: str) -> None:
+    def __init__(self, base_url: str, request_interval: float = 1.0) -> None:
         """Initialize the client."""
         self.__base_url = base_url
         self.__headers = {}
         self.__session: aiohttp.ClientSession | None = None
         self.__request_lock = asyncio.Lock()
         self.__last_request_time: float = 0.0
+        self.__min_request_interval = request_interval
+
+    def set_request_interval(self, request_interval: float) -> None:
+        """Update the minimum interval between outgoing requests."""
+        self.__min_request_interval = request_interval
 
     @asynccontextmanager
     async def _session_for_use(self):
@@ -54,7 +56,7 @@ class CloudChargeAPIClient:
         """
         async with self.__request_lock:
             elapsed = time.monotonic() - self.__last_request_time
-            wait = _MIN_REQUEST_INTERVAL - elapsed
+            wait = self.__min_request_interval - elapsed
             if wait > 0:
                 await asyncio.sleep(wait)
             if self.__session is None or self.__session.closed:

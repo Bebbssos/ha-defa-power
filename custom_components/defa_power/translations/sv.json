@@ -69,6 +69,13 @@
                     "user_id": "Användar-id",
                     "token": "Token"
                 }
+            },
+            "configure_throttling": {
+                "title": "Intervall mellan API-anrop",
+                "description": "Minsta tid mellan API-anrop. CloudCharge begränsar antalet anrop per token, så de behöver spridas ut. Lägre värden ger snabbare uppdateringar men ökar risken för att begränsas. Standard är 1000 ms.",
+                "data": {
+                    "request_interval_ms": "Minsta intervall mellan anrop"
+                }
             }
         }
     },
@@ -88,7 +95,8 @@
         },
         "select_step": {
             "options": {
-                "show_current_token": "Visa nuvarande token"
+                "show_current_token": "Visa nuvarande token",
+                "configure_throttling": "Konfigurera intervall mellan API-anrop"
             }
         }
     },
