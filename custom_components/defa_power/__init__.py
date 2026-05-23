@@ -144,6 +144,7 @@ async def async_unload_entry(hass: HomeAssistant, entry) -> bool:
     await hass.config_entries.async_unload_platforms(
         entry, ["binary_sensor", "sensor", "button", "number", "select", "switch"]
     )
+    await entry.runtime_data["client"].async_close()
     return True
 
 
