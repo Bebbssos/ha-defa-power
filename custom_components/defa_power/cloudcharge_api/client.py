@@ -1,5 +1,8 @@
 """CloudCharge API client."""
 
+import asyncio
+import time
+from contextlib import asynccontextmanager
 from typing import Literal
 
 import aiohttp
@@ -26,24 +29,54 @@ from .models import (
     PrivateChargePoint,
 )
 
-
 # Swagger file for api can be found at https://prod.cloudcharge.se/services/user/swagger.json
 class CloudChargeAPIClient:
     """CloudCharge API client."""
 
     __logged_in = False
 
-    def __init__(self, base_url: str) -> None:
+    def __init__(self, base_url: str, request_interval: float = 1.0) -> None:
         """Initialize the client."""
         self.__base_url = base_url
         self.__headers = {}
+        self.__session: aiohttp.ClientSession | None = None
+        self.__request_lock = asyncio.Lock()
+        self.__last_request_time: float = 0.0
+        self.__min_request_interval = request_interval
+
+    def set_request_interval(self, request_interval: float) -> None:
+        """Update the minimum interval between outgoing requests."""
+        self.__min_request_interval = request_interval
+
+    @asynccontextmanager
+    async def _session_for_use(self):
+        """Yield a shared session reused across requests via HTTP keep-alive.
+
+        Enforces a minimum interval between outgoing requests.
+        """
+        async with self.__request_lock:
+            elapsed = time.monotonic() - self.__last_request_time
+            wait = self.__min_request_interval - elapsed
+            if wait > 0:
+                await asyncio.sleep(wait)
+            if self.__session is None or self.__session.closed:
+                connector = aiohttp.TCPConnector(limit=1, force_close=False)
+                self.__session = aiohttp.ClientSession(connector=connector)
+            self.__last_request_time = time.monotonic()
+            yield self.__session
+
+    async def async_close(self) -> None:
+        """Close shared session if open."""
+        if self.__session is not None and not self.__session.closed:
+            await self.__session.close()
+        self.__session = None
 
     async def async_login_with_token(self, user_id: str, token: str):
         """Login with token and test."""
         headers = self.__build_auth_headers(user_id, token)
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.get(f"{self.__base_url}/profile", headers=headers) as response,
         ):
             await self.__async_check_response(response)
@@ -65,7 +98,7 @@ class CloudChargeAPIClient:
             payload["devToken"] = dev_token
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.post(f"{self.__base_url}/prelogin", json=payload) as response,
         ):
             await self.__async_check_response(response)
@@ -82,7 +115,7 @@ class CloudChargeAPIClient:
             payload["devToken"] = dev_token
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.post(f"{self.__base_url}/login", json=payload) as response,
         ):
             await self.__async_check_response(response)
@@ -103,7 +136,7 @@ class CloudChargeAPIClient:
         self.__check_logged_in()
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.post(
                 f"{self.__base_url}/logout", headers=self.__headers
             ) as response,
@@ -190,7 +223,7 @@ class CloudChargeAPIClient:
         self.__check_logged_in()
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.get(
                 f"{self.__base_url}/mychargers", headers=self.__headers
             ) as response,
@@ -203,7 +236,7 @@ class CloudChargeAPIClient:
         self.__check_logged_in()
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.get(
                 f"{self.__base_url}/chargers/private", headers=self.__headers
             ) as response,
@@ -216,7 +249,7 @@ class CloudChargeAPIClient:
         self.__check_logged_in()
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.post(
                 f"{self.__base_url}/chargepoints/get",
                 headers=self.__headers,
@@ -231,7 +264,7 @@ class CloudChargeAPIClient:
         self.__check_logged_in()
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.get(
                 f"{self.__base_url}/connector/{connector_id}/operationaldata",
                 headers=self.__headers,
@@ -245,7 +278,7 @@ class CloudChargeAPIClient:
         self.__check_logged_in()
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.get(
                 f"{self.__base_url}/connector/{connector_id}/loadBalancer",
                 headers=self.__headers,
@@ -261,7 +294,7 @@ class CloudChargeAPIClient:
         self.__check_logged_in()
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.get(
                 f"{self.__base_url}/connector/{connector_id}/networkconfiguration",
                 headers=self.__headers,
@@ -275,7 +308,7 @@ class CloudChargeAPIClient:
         self.__check_logged_in()
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.post(
                 f"{self.__base_url}/connector/{connector_id}/startliveconsumption",
                 headers=self.__headers,
@@ -290,7 +323,7 @@ class CloudChargeAPIClient:
         self.__check_logged_in()
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.get(
                 f"{self.__base_url}/connector/{connector_id}/maxcurrent/alternatives",
                 headers=self.__headers,
@@ -304,7 +337,7 @@ class CloudChargeAPIClient:
         self.__check_logged_in()
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.post(
                 f"{self.__base_url}/connector/{connector_id}/maxcurrent?current={current}",
                 headers=self.__headers,
@@ -317,7 +350,7 @@ class CloudChargeAPIClient:
         self.__check_logged_in()
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.post(
                 f"{self.__base_url}/charging/start",
                 headers=self.__headers,
@@ -331,7 +364,7 @@ class CloudChargeAPIClient:
         self.__check_logged_in()
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.post(
                 f"{self.__base_url}/charging/stop",
                 headers=self.__headers,
@@ -347,7 +380,7 @@ class CloudChargeAPIClient:
         self.__check_logged_in()
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.post(
                 f"{self.__base_url}/connector/{connector_id}/reset?type={reset_type}",
                 headers=self.__headers,
@@ -362,7 +395,7 @@ class CloudChargeAPIClient:
         self.__check_logged_in()
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.get(
                 f"{self.__base_url}/connector/{connector_id}/ecomode/configuration",
                 headers=self.__headers,
@@ -378,7 +411,7 @@ class CloudChargeAPIClient:
         self.__check_logged_in()
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.put(
                 f"{self.__base_url}/connector/{connector_id}/ecomode/configuration",
                 headers=self.__headers,
@@ -392,7 +425,7 @@ class CloudChargeAPIClient:
         self.__check_logged_in()
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.get(
                 f"{self.__base_url}/connector/{connector_id}/manual-schedules",
                 headers=self.__headers,
@@ -409,7 +442,7 @@ class CloudChargeAPIClient:
 
         enabled_str = "true" if enabled else "false"
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.put(
                 f"{self.__base_url}/connector/{connector_id}/manual-schedules/enable/{enabled_str}",
                 headers=self.__headers,
@@ -425,7 +458,7 @@ class CloudChargeAPIClient:
         self.__check_logged_in()
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.post(
                 f"{self.__base_url}/connector/{connector_id}/manual-schedules",
                 headers=self.__headers,
@@ -442,7 +475,7 @@ class CloudChargeAPIClient:
         self.__check_logged_in()
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.put(
                 f"{self.__base_url}/connector/{connector_id}/manual-schedules/{schedule_id}",
                 headers=self.__headers,
@@ -459,7 +492,7 @@ class CloudChargeAPIClient:
         self.__check_logged_in()
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.delete(
                 f"{self.__base_url}/connector/{connector_id}/manual-schedules/{schedule_id}",
                 headers=self.__headers,
@@ -474,7 +507,7 @@ class CloudChargeAPIClient:
         self.__check_logged_in()
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.get(
                 f"{self.__base_url}/connector/{connector_id}/schedule/active-settings",
                 headers=self.__headers,
@@ -490,7 +523,7 @@ class CloudChargeAPIClient:
         self.__check_logged_in()
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.put(
                 f"{self.__base_url}/connector/{connector_id}/schedule/override",
                 headers=self.__headers,

@@ -7,7 +7,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv, device_registry as dr
 
 from .cloudcharge_api.client import CloudChargeAPIClient
-from .const import API_BASE_URL
+from .const import (
+    API_BASE_URL,
+    CONF_REQUEST_INTERVAL_MS,
+    DEFAULT_REQUEST_INTERVAL_MS,
+)
 from .coordinator import (
     CloudChargeActiveScheduleCoordinator,
     CloudChargeChargepointCoordinator,
@@ -34,7 +38,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
     """Set up DEFA Power from a config entry."""
     _LOGGER.info("Setting up DEFA Power from config entry")
 
-    client = CloudChargeAPIClient(API_BASE_URL)
+    interval_ms = entry.options.get(
+        CONF_REQUEST_INTERVAL_MS, DEFAULT_REQUEST_INTERVAL_MS
+    )
+    client = CloudChargeAPIClient(API_BASE_URL, request_interval=interval_ms / 1000.0)
     client.import_credentials(entry.data["credentials"])
 
     chargepoint_ids = await client.async_get_chargepoint_ids()
@@ -144,6 +151,7 @@ async def async_unload_entry(hass: HomeAssistant, entry) -> bool:
     await hass.config_entries.async_unload_platforms(
         entry, ["binary_sensor", "sensor", "button", "number", "select", "switch"]
     )
+    await entry.runtime_data["client"].async_close()
     return True
 
 
@@ -186,7 +194,12 @@ async def update_listener(hass: HomeAssistant, entry: DefaPowerConfigEntry):
     """Handle options update."""
     _LOGGER.info("Handling options update")
 
-    entry.runtime_data["client"].import_credentials(entry.data["credentials"])
+    client = entry.runtime_data["client"]
+    client.import_credentials(entry.data["credentials"])
+    interval_ms = entry.options.get(
+        CONF_REQUEST_INTERVAL_MS, DEFAULT_REQUEST_INTERVAL_MS
+    )
+    client.set_request_interval(interval_ms / 1000.0)
 
 
 async def async_setup(hass: HomeAssistant, config):
