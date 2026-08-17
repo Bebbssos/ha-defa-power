@@ -53,6 +53,14 @@ class CloudChargeAPIClient:
         """Yield a shared session reused across requests via HTTP keep-alive.
 
         Enforces a minimum interval between outgoing requests.
+
+        The API runs on several servers, and a cookie (INGRESSCOOKIE) decides
+        which one a request reaches. The shared cookie jar keeps sending that
+        cookie back, so every request stays on the same server. Some state
+        appears to only exist on the server that created it, so a session per
+        request would spread calls around: /login reports "No loginAttempts
+        found" when it reaches a different server than the /prelogin that sent
+        the SMS.
         """
         async with self.__request_lock:
             elapsed = time.monotonic() - self.__last_request_time
