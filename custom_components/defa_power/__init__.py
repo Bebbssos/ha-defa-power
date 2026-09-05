@@ -9,7 +9,11 @@ from homeassistant.helpers import config_validation as cv, device_registry as dr
 
 from .cloudcharge_api.client import CloudChargeAPIClient
 from .cloudcharge_api.exceptions import CloudChargeAPIError
-from .const import API_BASE_URL
+from .const import (
+    API_BASE_URL,
+    CONF_REQUEST_INTERVAL_MS,
+    DEFAULT_REQUEST_INTERVAL_MS,
+)
 from .coordinator import (
     CloudChargeActiveScheduleCoordinator,
     CloudChargeChargepointCoordinator,
@@ -38,10 +42,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
     """Set up DEFA Power from a config entry."""
     _LOGGER.info("Setting up DEFA Power from config entry")
 
-    client = CloudChargeAPIClient(API_BASE_URL)
+    interval_ms = entry.options.get(
+        CONF_REQUEST_INTERVAL_MS, DEFAULT_REQUEST_INTERVAL_MS
+    )
+    client = CloudChargeAPIClient(API_BASE_URL, request_interval=interval_ms / 1000.0)
     client.import_credentials(entry.data["credentials"])
 
     instance_id = entry.data.get("instance_id") or "default"
+    device_registry = dr.async_get(hass)
     chargepoints: dict = {}
     connectors: dict = {}
     data: RuntimeData = {
@@ -67,6 +75,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
     # Build shared chargepoint coordinators; process chargepoint subentries first
     # so connector subentries can reuse them.
     cp_coordinators: dict[str, CloudChargeChargepointCoordinator] = {}
+    # Device registry ids of the registered chargepoint devices, used by their
+    # connectors as via_device_id
+    cp_device_ids: dict[str, str] = {}
 
     for subentry in entry.subentries.values():
         if subentry.subentry_type != "chargepoint":
@@ -77,9 +88,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
         coordinator = CloudChargeChargepointCoordinator(cp_id, hass, client)
         await coordinator.async_config_entry_first_refresh()
         cp_coordinators[cp_id] = coordinator
+        chargepoint_device = ChargePointDevice(
+            coordinator.data["chargepoint"], instance_id
+        )
+        # Register the chargepoint device up front so its connectors can reference
+        # it by device id (via_device_id). Chargepoints without a subentry are
+        # deliberately left unregistered: registering them on the main entry makes
+        # HA show them under "Devices that don't belong to a sub-entry".
+        chargepoint_device_entry = device_registry.async_get_or_create(
+            config_entry_id=entry.entry_id,
+            config_subentry_id=subentry.subentry_id,
+            **chargepoint_device.get_device_info(),
+        )
+        cp_device_ids[cp_id] = chargepoint_device_entry.id
         cp: RuntimeDataChargePoint = {
             "coordinator": coordinator,
-            "device": ChargePointDevice(coordinator.data["chargepoint"], instance_id),
+            "device": chargepoint_device,
             "skipped_entities": [],
             "has_subentry": True,
             "subentry_id": subentry.subentry_id,
@@ -165,7 +189,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
                 )
 
         conn: RuntimeDataConnector = {
-            "device": ConnectorDevice(connector_val, instance_id, alias, chargepoint_registered=chargepoints[cp_id]["has_subentry"]),
+            "device": ConnectorDevice(
+                connector_val, instance_id, alias, cp_device_ids.get(cp_id)
+            ),
             "alias": alias,
             "chargepoint_id": cp_id,
             "operational_data_coordinator": operational_data_coordinator,
@@ -178,19 +204,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
             "connection_type": subentry.data.get("connection_type", "cloudcharge"),
         }
         connectors[connector_id] = conn
-
-    # Pre-register chargepoint devices so connector devices can reference them via via_device.
-    # Skip implicit parents (no subentry) — registering them to the main entry without a
-    # subentry causes HA to show them under "Devices that don't belong to a sub-entry".
-    device_registry = dr.async_get(hass)
-    for cp_data in chargepoints.values():
-        if not cp_data["has_subentry"]:
-            continue
-        device_registry.async_get_or_create(
-            config_entry_id=entry.entry_id,
-            config_subentry_id=cp_data["subentry_id"],
-            **cp_data["device"].get_device_info()
-        )
 
     entry.async_on_unload(entry.add_update_listener(update_listener))
 
@@ -332,6 +345,7 @@ async def async_unload_entry(hass: HomeAssistant, entry) -> bool:
     """Unload a config entry."""
     _LOGGER.info("Unloading DEFA Power config entry")
     await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    await entry.runtime_data["client"].async_close()
     return True
 
 
@@ -371,7 +385,7 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry):
 
 
 async def update_listener(hass: HomeAssistant, entry: DefaPowerConfigEntry):
-    """Reload the entry when config changes (subentry added/removed, credentials updated)."""
+    """Reload the entry when config changes (subentry added/removed, credentials or throttling updated)."""
     hass.config_entries.async_schedule_reload(entry.entry_id)
 
 

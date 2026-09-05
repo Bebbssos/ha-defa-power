@@ -23,7 +23,9 @@ class ChargePointDevice:
 class ConnectorDevice:
     """Representation of a DEFA Power connector device."""
 
-    def __init__(self, data, instance_id, alias, chargepoint_registered: bool = False) -> None:
+    def __init__(
+        self, data, instance_id, alias, via_device_id: str | None = None
+    ) -> None:
         """Initialize the device."""
         self._device_info = DeviceInfo(
             identifiers={(DOMAIN, instance_id, data["id"])},  # type: ignore[arg-type]
@@ -32,11 +34,9 @@ class ConnectorDevice:
             name=data.get("displayName") or alias or data["id"],
             sw_version=data["firmwareVersion"],
             serial_number=data["serialNumber"],
-            **(
-                {"via_device": (DOMAIN, instance_id, data["chargepoint_id"])}  # type: ignore[misc]
-                if chargepoint_registered
-                else {}
-            ),
+            # Only linked when the chargepoint device is registered, which is
+            # not the case for chargepoints without their own subentry
+            **({"via_device_id": via_device_id} if via_device_id else {}),
         )
 
     def get_device_info(self):

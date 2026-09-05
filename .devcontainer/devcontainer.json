@@ -4,10 +4,15 @@
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/ha-defa-power,type=bind,consistency=cached",
   "workspaceFolder": "/workspaces/ha-defa-power",
   "mounts": [
-    "source=${localWorkspaceFolder}/custom_components,target=/config/custom_components,type=bind,consistency=cached"
+    "source=${localWorkspaceFolder}/custom_components,target=/config/custom_components,type=bind,consistency=cached",
+    "source=ha-defa-power-config,target=/config,type=volume",
+    "source=ha-defa-power-claude,target=/root/.claude,type=volume"
   ],
   "postCreateCommand": "bash /workspaces/ha-defa-power/.devcontainer/setup.sh",
-  "appPort": ["8123:8123", "5678:5678"],
+  "appPort": [
+    "8123:8123",
+    "5678:5678"
+  ],
   "remoteUser": "root",
   "customizations": {
     "vscode": {

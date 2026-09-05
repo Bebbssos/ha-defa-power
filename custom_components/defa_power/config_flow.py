@@ -13,6 +13,9 @@ from homeassistant.config_entries import ConfigFlowResult, ConfigSubentryFlow
 from homeassistant.core import callback
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
     SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
@@ -29,7 +32,13 @@ from .cloudcharge_api.exceptions import (
     CloudChargeForbiddenErrorType,
     CloudChargeRequestError,
 )
-from .const import API_BASE_URL, DOMAIN, NAME
+from .const import (
+    API_BASE_URL,
+    CONF_REQUEST_INTERVAL_MS,
+    DEFAULT_REQUEST_INTERVAL_MS,
+    DOMAIN,
+    NAME,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -87,6 +96,7 @@ OPTIONS_CHOICE_SCHEMA = vol.Schema(
                 mode=SelectSelectorMode.LIST,
                 options=[
                     "show_current_token",
+                    "configure_throttling",
                 ],
             )
         )
@@ -110,11 +120,30 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 2
     MINOR_VERSION = 1
 
-    send_code_data: dict[str, Any] | None
+    send_code_data: dict[str, Any] | None = None
     _login_data: dict[str, Any] | None = None
     _profile_name: str | None = None
     _connector_options: list[SelectOptionDict] | None = None
     _chargepoint_options: list[SelectOptionDict] | None = None
+    # The API runs on several servers, and the login attempt created by
+    # /prelogin appears to only exist on the server that handled it. All steps
+    # share one client so its cookie jar keeps them on that server, otherwise
+    # /login fails with "No loginAttempts found".
+    client: CloudChargeAPIClient | None = None
+
+    def __get_client(self) -> CloudChargeAPIClient:
+        """Return the client shared by all steps of this flow."""
+        if self.client is None:
+            self.client = CloudChargeAPIClient(API_BASE_URL)
+        return self.client
+
+    @core.callback
+    def async_remove(self) -> None:
+        """Clean up when the flow is removed."""
+        if self.client is not None:
+            client = self.client
+            self.client = None
+            self.hass.async_create_task(client.async_close())
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """Handle the initial step."""
@@ -157,7 +186,7 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 user_input[CONF_PHONE_NUMBER] = normalize_phone_number(
                     user_input[CONF_PHONE_NUMBER]
                 )
-                client = CloudChargeAPIClient(API_BASE_URL)
+                client = self.__get_client()
                 match user_input[CONF_DEV_TOKEN_OPTIONS]:
                     case "cloud_charge":
                         dev_token = "X5zVn6MCWvrf6ft2"
@@ -205,11 +234,11 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             # Validate the path.
             data = {}
-            if self.send_code_data is None:
+            if self.send_code_data is None or self.client is None:
                 _LOGGER.error("SMS code step reached without prior send_code_data")
                 return await self.async_step_send_code()
             try:
-                client = CloudChargeAPIClient(API_BASE_URL)
+                client = self.client
                 await client.async_login_with_phone_number(
                     self.send_code_data["phone_number"],
                     user_input[CONF_SMS_CODE],
@@ -258,7 +287,7 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             token = user_input[CONF_TOKEN]
             data = {}
             try:
-                client = CloudChargeAPIClient(API_BASE_URL)
+                client = self.__get_client()
                 await client.async_login_with_token(user_id, token)
                 data["credentials"] = client.export_credentials()
             except CloudChargeAuthError as e:
@@ -592,6 +621,8 @@ class DefaPowerOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             if user_input["select_step"] == "show_current_token":
                 return await self.async_step_show_token()
+            if user_input["select_step"] == "configure_throttling":
+                return await self.async_step_configure_throttling()
 
         return self.async_show_form(
             step_id="init",
@@ -617,6 +648,39 @@ class DefaPowerOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_TOKEN,
                         default=self.config_entry.data["credentials"]["token"],
                     ): cv.string,
+                }
+            ),
+        )
+
+    async def async_step_configure_throttling(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Configure the minimum interval between API requests."""
+        if user_input is not None:
+            new_options = {
+                **self.config_entry.options,
+                CONF_REQUEST_INTERVAL_MS: int(user_input[CONF_REQUEST_INTERVAL_MS]),
+            }
+            return self.async_create_entry(title="", data=new_options)
+
+        current = self.config_entry.options.get(
+            CONF_REQUEST_INTERVAL_MS, DEFAULT_REQUEST_INTERVAL_MS
+        )
+        return self.async_show_form(
+            step_id="configure_throttling",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_REQUEST_INTERVAL_MS, default=current
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=0,
+                            max=60000,
+                            step=100,
+                            unit_of_measurement="ms",
+                            mode=NumberSelectorMode.BOX,
+                        )
+                    )
                 }
             ),
         )
