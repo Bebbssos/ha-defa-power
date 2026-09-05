@@ -4,6 +4,8 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 import logging
 
+import aiohttp
+
 from homeassistant.components.number import (
     NumberDeviceClass,
     NumberEntity,
@@ -17,6 +19,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DefaPowerConfigEntry
 from .cloudcharge_api.client import CloudChargeAPIClient
+from .cloudcharge_api.exceptions import CloudChargeAPIError
 from .cloudcharge_api.models import Connector, EcoModeConfiguration
 from .coordinator import CloudChargeEcoModeCoordinator
 from .devices import ConnectorDevice
@@ -42,7 +45,14 @@ async def fetch_min_max_values(
             keys = sorted(int(k) for k in response)
             return keys[0], keys[-1]  # Return min and max values
 
-    except (KeyError, ValueError, TypeError, Exception) as e:
+    except (
+        CloudChargeAPIError,
+        aiohttp.ClientError,
+        TimeoutError,
+        KeyError,
+        ValueError,
+        TypeError,
+    ) as e:
         _LOGGER.warning(
             "Failed to fetch currentAlternatives for connector %s: %s. Using defaults",
             connector_id,

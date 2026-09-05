@@ -130,7 +130,9 @@ async def _async_call_api(data: dict[str, Any], prop: str, call: Callable[[], An
         execution_time = time.perf_counter() - start_time
         data[prop] = res
         data[f"{prop}_execution_time"] = round(execution_time, 3)
-    except Exception as e:
+    # A diagnostics dump records what went wrong with each individual call,
+    # including unexpected failures, rather than failing as a whole.
+    except Exception as e:  # noqa: BLE001
         data[prop] = (
             f"An exception of type {type(e).__name__} occurred. Arguments:\n{e.args!r}"
         )

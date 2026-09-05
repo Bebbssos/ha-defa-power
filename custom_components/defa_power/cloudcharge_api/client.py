@@ -172,7 +172,7 @@ class CloudChargeAPIClient:
         if response.status == 400:
             try:
                 message = await response.text()
-            except Exception:
+            except (aiohttp.ClientError, TimeoutError, UnicodeDecodeError):
                 message = ""
 
             raise CloudChargeBadRequestError(message)
@@ -180,7 +180,7 @@ class CloudChargeAPIClient:
         if response.status == 403:
             try:
                 message = await response.text()
-            except Exception:
+            except (aiohttp.ClientError, TimeoutError, UnicodeDecodeError):
                 message = ""
 
             raise CloudChargeForbiddenError(message)
