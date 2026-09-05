@@ -21,6 +21,7 @@ This is a custom integration for Home Assistant that allows you to control and m
 
 - **DEFA Power chargers**: Full support for all features.
 - **DEFA eRange chargers**: Partial support - some features may not be available or may not function as expected on these models.
+- **Home Assistant**: 2026.8.0 or newer. Older versions can keep using version 0.5.4.
 
 ### Installation Instructions
 
