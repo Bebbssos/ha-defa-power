@@ -34,9 +34,12 @@ This is a custom integration for Home Assistant that allows you to control and m
 
 #### Manual Installation
 
-1. Clone this repository or download the ZIP file.
-2. Copy the `custom_components/defa_power` directory to your Home Assistant `config/custom_components` directory.
-3. Restart Home Assistant.
+1. Download `defa_power.zip` from the [latest release](https://github.com/Bebbssos/ha-defa-power/releases/latest), or clone this repository.
+2. Create a `defa_power` directory inside your Home Assistant `config/custom_components` directory.
+3. Put the integration files in it:
+   - **From the ZIP:** extract the contents of `defa_power.zip` directly into `config/custom_components/defa_power`. The archive contains the integration files themselves (`manifest.json`, `__init__.py`, ...), not a wrapping folder, so `config/custom_components/defa_power/manifest.json` must exist when you are done.
+   - **From a clone:** copy the contents of `custom_components/defa_power` into `config/custom_components/defa_power`.
+4. Restart Home Assistant.
 
 ### Setup Instructions
 
@@ -54,7 +57,9 @@ You will be prompted to choose a login method:
 
 ##### Phone Number Login
 
-1. Enter your phone number in the international format (e.g., +1234567890).
+1. Enter your phone number in international format: country code followed by your national number **without the leading zero** (e.g., `+46701234567`, not `+460701234567`).
+
+   Spaces, dashes and the `+` are stripped before the number is sent, so `+46 70 123 45 67` works just as well. The leading zero is the one thing that matters: keeping it makes the SMS arrive, but the code you enter afterwards is rejected with `No loginAttempts found`.
 2. Select an app to simulate:
 
    - **Cloud Charge**: Simulate the CloudCharge app.
