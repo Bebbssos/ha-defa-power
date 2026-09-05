@@ -29,7 +29,7 @@ All integration code lives in `custom_components/defa_power/`. This is the only 
 - `CloudChargeOperationalDataCoordinator` — polls every 60 s; drops to 10 s while `chargingState == "Charging"` and calls `async_start_live_consumption`
 - `CloudChargeEcoModeCoordinator` — only created if `capabilities.ecoMode == True`; uses a write-coalesce pattern via `set_data(callback)` that batches rapid writes then refreshes
 
-**Device hierarchy**: `ChargePointDevice` (parent) → `ConnectorDevice` (child, linked via `via_device`). Parent devices are registered before child devices — order matters.
+**Device hierarchy**: `ChargePointDevice` (parent) → `ConnectorDevice` (child, linked via `via_device_id`). Each chargepoint is registered in the device registry in `async_setup_entry` before its connectors are built, and the resulting device entry id is passed to `ConnectorDevice` — order matters. (`via_device` is deprecated and raises in HA 2026.9+ when the deprecation report cannot find an integration frame.)
 
 **Entity skipping**: Entities where `value_fn` returns `None` at setup and `create_if_none=False` (default) are intentionally omitted, not created as unavailable.
 

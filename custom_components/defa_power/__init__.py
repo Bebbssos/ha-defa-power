@@ -47,6 +47,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
     chargepoint_ids = await client.async_get_chargepoint_ids()
 
     instance_id = entry.data.get("instance_id") or "default"
+    device_registry = dr.async_get(hass)
     chargepoints = {}
     connectors = {}
     data: RuntimeData = {
@@ -60,9 +61,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
         await coordinator.async_config_entry_first_refresh()
         chargepoint_data = coordinator.data
 
+        chargepoint_device = ChargePointDevice(
+            chargepoint_data["chargepoint"], instance_id
+        )
+        # Register the chargepoint device up front so its connectors can reference
+        # it by device id (via_device_id)
+        chargepoint_device_entry = device_registry.async_get_or_create(
+            config_entry_id=entry.entry_id, **chargepoint_device.get_device_info()
+        )
+
         cp: RuntimeDataChargePoint = {
             "coordinator": coordinator,
-            "device": ChargePointDevice(chargepoint_data["chargepoint"], instance_id),
+            "device": chargepoint_device,
             "skipped_entities": [],
         }
         chargepoints[chargepoint_id] = cp
@@ -113,7 +123,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
                     )
 
             conn: RuntimeDataConnector = {
-                "device": ConnectorDevice(val, instance_id, alias),
+                "device": ConnectorDevice(
+                    val, instance_id, alias, chargepoint_device_entry.id
+                ),
                 "alias": alias,
                 "chargepoint_id": chargepoint_id,
                 "operational_data_coordinator": operational_data_coordinator,
@@ -126,16 +138,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
             connectors[connector_id] = conn
 
     entry.runtime_data = data
-
-    # Pre-register chargepoint devices in device registry to ensure
-    # they exist before connector devices try to reference them via via_device
-    device_registry = dr.async_get(hass)
-    for chargepoint_id, chargepoint_data in chargepoints.items():
-        device_info = chargepoint_data["device"].get_device_info()
-        # Ensure the parent device exists in device registry before child devices reference it
-        device_registry.async_get_or_create(
-            config_entry_id=entry.entry_id, **device_info
-        )
 
     entry.async_on_unload(entry.add_update_listener(update_listener))
 

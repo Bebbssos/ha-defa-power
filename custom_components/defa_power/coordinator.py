@@ -66,12 +66,7 @@ class CloudChargeChargepointCoordinator(DataUpdateCoordinator):
             except CloudChargeAPIError as err:
                 raise UpdateFailed(f"Error communicating with API: {err}") from err
 
-            connectors = {}
-            chargepoint_id = chargepoint.get("id", "")
-
-            for alias, connector in (chargepoint.get("aliasMap") or {}).items():
-                connector["chargepoint_id"] = chargepoint_id  # type: ignore[literal-required]
-                connectors[alias] = connector
+            connectors = dict(chargepoint.get("aliasMap") or {})
 
             return {"chargepoint": chargepoint, "connectors": connectors}
 
