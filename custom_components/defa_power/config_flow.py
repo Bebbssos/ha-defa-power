@@ -36,8 +36,12 @@ from .cloudcharge_api.exceptions import (
 from .const import (
     API_BASE_URL,
     CONF_REQUEST_INTERVAL_MS,
+    CONFIG_ENTRY_MINOR_VERSION,
+    CONFIG_ENTRY_VERSION,
     DEFAULT_REQUEST_INTERVAL_MS,
     DOMAIN,
+    INITIAL_CHARGEPOINT_IDS,
+    INITIAL_CONNECTOR_IDS,
     NAME,
 )
 
@@ -141,8 +145,8 @@ async def async_client_for_entry(
 class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """DEFA Power config flow."""
 
-    VERSION = 2
-    MINOR_VERSION = 1
+    VERSION = CONFIG_ENTRY_VERSION
+    MINOR_VERSION = CONFIG_ENTRY_MINOR_VERSION
 
     send_code_data: dict[str, Any] | None = None
     _login_data: dict[str, Any] | None = None
@@ -377,19 +381,19 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if not self._connector_options and not self._chargepoint_options:
             assert self._login_data is not None
-            self._login_data["initial_connector_ids"] = []
-            self._login_data["initial_chargepoint_ids"] = []
+            self._login_data[INITIAL_CONNECTOR_IDS] = []
+            self._login_data[INITIAL_CHARGEPOINT_IDS] = []
             return self.__add_or_update_entry(self._login_data)
 
         if user_input is not None:
             selected_connectors = user_input.get("connector_keys") or []
             selected_chargepoints = user_input.get("chargepoint_keys") or []
             assert self._login_data is not None
-            self._login_data["initial_connector_ids"] = [
+            self._login_data[INITIAL_CONNECTOR_IDS] = [
                 {"connector_id": k.split(":")[0], "chargepoint_id": k.split(":")[1]}
                 for k in selected_connectors
             ]
-            self._login_data["initial_chargepoint_ids"] = selected_chargepoints
+            self._login_data[INITIAL_CHARGEPOINT_IDS] = selected_chargepoints
             return self.__add_or_update_entry(self._login_data)
 
         schema_fields: dict = {

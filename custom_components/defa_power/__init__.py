@@ -2,17 +2,24 @@
 
 import logging
 from types import MappingProxyType
+from typing import cast
 
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv, device_registry as dr
 
 from .cloudcharge_api.client import CloudChargeAPIClient
 from .cloudcharge_api.exceptions import CloudChargeAPIError
+from .cloudcharge_api.models import ChargePoint
 from .const import (
     API_BASE_URL,
     CONF_REQUEST_INTERVAL_MS,
+    CONFIG_ENTRY_VERSION,
     DEFAULT_REQUEST_INTERVAL_MS,
+    DOMAIN,
+    INITIAL_CHARGEPOINT_IDS,
+    INITIAL_CONNECTOR_IDS,
 )
 from .coordinator import (
     CloudChargeActiveScheduleCoordinator,
@@ -59,18 +66,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
     }
     entry.runtime_data = data
 
-    if not entry.subentries and not entry.data.get("_setup_completed"):
-        if "initial_connector_ids" in entry.data:
-            await _async_bootstrap_from_selection(hass, entry, client)
-        else:
-            await _async_migrate_to_subentries(hass, entry, client)
-        hass.config_entries.async_update_entry(
-            entry,
-            data={
-                k: v for k, v in entry.data.items()
-                if k not in ("initial_connector_ids", "initial_chargepoint_ids")
-            } | {"_setup_completed": True},
-        )
+    # Subentries for an entry migrated from 0.5.x are created by async_migrate_entry;
+    # a freshly added entry carries the selection made in the config flow instead.
+    if INITIAL_CONNECTOR_IDS in entry.data or INITIAL_CHARGEPOINT_IDS in entry.data:
+        await _async_bootstrap_from_selection(hass, entry, client)
 
     # Build shared chargepoint coordinators; process chargepoint subentries first
     # so connector subentries can reuse them.
@@ -211,134 +210,201 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
     return True
 
 
+def _chargepoint_subentry(cp_id: str, cp_data: ChargePoint) -> ConfigSubentry:
+    """Build the subentry representing a chargepoint."""
+    return ConfigSubentry(
+        data=MappingProxyType({"chargepoint_id": cp_id}),
+        subentry_type="chargepoint",
+        title=cp_data.get("displayName") or cp_id,
+        unique_id=cp_id,
+    )
+
+
+def _connector_subentry(connector_id: str, cp_id: str, title: str) -> ConfigSubentry:
+    """Build the subentry representing a connector."""
+    return ConfigSubentry(
+        data=MappingProxyType(
+            {
+                "connector_id": connector_id,
+                "chargepoint_id": cp_id,
+                "connection_type": "cloudcharge",
+            }
+        ),
+        subentry_type="connector",
+        title=title,
+        unique_id=connector_id,
+    )
+
+
+def _connector_title(cp_data: ChargePoint, cp_title: str, connector_id: str) -> str:
+    """Return the display title for a connector of a chargepoint."""
+    for alias, val in (cp_data.get("aliasMap") or {}).items():
+        if val.get("id") == connector_id:
+            return f"{val.get('displayName') or alias} ({cp_title})"
+    return connector_id
+
+
 async def _async_bootstrap_from_selection(
     hass: HomeAssistant,
     entry: DefaPowerConfigEntry,
     client: CloudChargeAPIClient,
 ) -> None:
     """Create subentries for connectors/chargepoints selected during initial setup."""
-    initial_connectors: list[dict] = entry.data.get("initial_connector_ids") or []
-    initial_chargepoints: list[str] = entry.data.get("initial_chargepoint_ids") or []
+    initial_connectors: list[dict] = entry.data.get(INITIAL_CONNECTOR_IDS) or []
+    initial_chargepoints: list[str] = entry.data.get(INITIAL_CHARGEPOINT_IDS) or []
 
-    if not initial_connectors and not initial_chargepoints:
-        return
-
-    cp_data_cache: dict = {}
+    subentries: list[ConfigSubentry] = []
+    cp_data_cache: dict[str, ChargePoint] = {}
     cp_ids_seen: set[str] = set()
 
-    async def _ensure_cp_data(cp_id: str) -> dict:
+    async def _ensure_cp_data(cp_id: str) -> ChargePoint:
         if cp_id not in cp_data_cache:
-            try:
-                cp_data_cache[cp_id] = await client.async_get_chargepoint(cp_id)
-            except CloudChargeAPIError as err:
-                _LOGGER.error("Bootstrap failed for chargepoint %s: %s", cp_id, err)
-                cp_data_cache[cp_id] = {}
+            cp_data_cache[cp_id] = await client.async_get_chargepoint(cp_id)
         return cp_data_cache[cp_id]
 
-    def _add_chargepoint_subentry(cp_id: str, cp_data: dict) -> None:
-        if cp_id in cp_ids_seen:
-            return
-        cp_ids_seen.add(cp_id)
-        cp_title = cp_data.get("displayName") or cp_id
-        hass.config_entries.async_add_subentry(
-            entry,
-            ConfigSubentry(
-                data=MappingProxyType({"chargepoint_id": cp_id}),
-                subentry_type="chargepoint",
-                title=cp_title,
-                unique_id=cp_id,
-            ),
-        )
-
-    # Explicitly selected chargepoints first
-    for cp_id in initial_chargepoints:
-        cp_data = await _ensure_cp_data(cp_id)
-        _add_chargepoint_subentry(cp_id, cp_data)
-
-    # Connectors — no automatic chargepoint subentry creation; only explicit selections above
-    for item in initial_connectors:
-        cp_id = item["chargepoint_id"]
-        connector_id = item["connector_id"]
-
-        cp_data = await _ensure_cp_data(cp_id)
-        cp_name = cp_data.get("displayName") or cp_id
-
-        conn_title = connector_id
-        for alias, val in (cp_data.get("aliasMap") or {}).items():
-            if val.get("id") == connector_id:
-                conn_title = f"{val.get('displayName') or alias} ({cp_name})"
-                break
-
-        hass.config_entries.async_add_subentry(
-            entry,
-            ConfigSubentry(
-                data=MappingProxyType(
-                    {
-                        "connector_id": connector_id,
-                        "chargepoint_id": cp_id,
-                        "connection_type": "cloudcharge",
-                    }
-                ),
-                subentry_type="connector",
-                title=conn_title,
-                unique_id=connector_id,
-            ),
-        )
-
-    _LOGGER.info("Bootstrap complete: created %d subentries", len(entry.subentries))
-
-
-async def _async_migrate_to_subentries(
-    hass: HomeAssistant,
-    entry: DefaPowerConfigEntry,
-    client: CloudChargeAPIClient,
-) -> None:
-    """Create subentries for all existing connectors/chargepoints (one-time migration)."""
-    _LOGGER.info("Migrating DEFA Power config entry to subentries")
     try:
-        chargepoint_ids = await client.async_get_chargepoint_ids()
-    except CloudChargeAPIError as err:
-        _LOGGER.error("Migration failed: could not fetch chargepoints: %s", err)
-        return
-
-    for cp_id in chargepoint_ids:
-        try:
-            cp_data = await client.async_get_chargepoint(cp_id)
-        except CloudChargeAPIError as err:
-            _LOGGER.error("Migration failed for chargepoint %s: %s", cp_id, err)
-            continue
-
-        cp_title = cp_data.get("displayName") or cp_id
-        hass.config_entries.async_add_subentry(
-            entry,
-            ConfigSubentry(
-                data=MappingProxyType({"chargepoint_id": cp_id}),
-                subentry_type="chargepoint",
-                title=cp_title,
-                unique_id=cp_id,
-            ),
-        )
-
-        for alias, val in (cp_data.get("aliasMap") or {}).items():
-            connector_id = val.get("id")
-            if not connector_id:
+        # Explicitly selected chargepoints first
+        for cp_id in initial_chargepoints:
+            if cp_id in cp_ids_seen:
                 continue
-            conn_title = f"{val.get('displayName') or alias} ({cp_title})"
-            hass.config_entries.async_add_subentry(
-                entry,
-                ConfigSubentry(
-                    data=MappingProxyType(
-                        {"connector_id": connector_id, "chargepoint_id": cp_id, "connection_type": "cloudcharge"}
-                    ),
-                    subentry_type="connector",
-                    title=conn_title,
-                    unique_id=connector_id,
-                ),
+            cp_ids_seen.add(cp_id)
+            subentries.append(
+                _chargepoint_subentry(cp_id, await _ensure_cp_data(cp_id))
             )
 
-    _LOGGER.info(
-        "Migration complete: created %d subentries", len(entry.subentries)
+        # Connectors — no automatic chargepoint subentry creation; only the
+        # explicit selections above get one
+        for item in initial_connectors:
+            cp_id = item["chargepoint_id"]
+            connector_id = item["connector_id"]
+            cp_data = await _ensure_cp_data(cp_id)
+            cp_title = cp_data.get("displayName") or cp_id
+            subentries.append(
+                _connector_subentry(
+                    connector_id,
+                    cp_id,
+                    _connector_title(cp_data, cp_title, connector_id),
+                )
+            )
+    except CloudChargeAPIError as err:
+        raise ConfigEntryNotReady(
+            f"Could not read the selected chargepoints from CloudCharge: {err}"
+        ) from err
+
+    for subentry in subentries:
+        hass.config_entries.async_add_subentry(entry, subentry)
+
+    # Drop the selection only once every subentry it describes exists, so a failed
+    # attempt is retried with the selection intact rather than leaving the entry
+    # set up with no devices at all.
+    hass.config_entries.async_update_entry(
+        entry,
+        data={
+            k: v
+            for k, v in entry.data.items()
+            if k not in (INITIAL_CONNECTOR_IDS, INITIAL_CHARGEPOINT_IDS)
+        },
     )
+
+    _LOGGER.info("Bootstrap complete: created %d subentries", len(subentries))
+
+
+async def _async_migrate_to_subentries(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Give every chargepoint and connector of a 0.5.x entry its own subentry.
+
+    Returns False when the CloudCharge API could not be read, so the migration is
+    retried on the next restart instead of leaving the entry without subentries.
+    """
+    # An entry created by an 0.6.0 beta already has its subentries, and one whose
+    # initial setup never finished gets them from the config flow selection; both
+    # only need their devices reconciled below.
+    if not entry.subentries and not (
+        INITIAL_CONNECTOR_IDS in entry.data or INITIAL_CHARGEPOINT_IDS in entry.data
+    ):
+        _LOGGER.info("Migrating DEFA Power config entry to subentries")
+
+        interval_ms = entry.options.get(
+            CONF_REQUEST_INTERVAL_MS, DEFAULT_REQUEST_INTERVAL_MS
+        )
+        client = CloudChargeAPIClient(
+            API_BASE_URL, request_interval=interval_ms / 1000.0
+        )
+        client.import_credentials(entry.data["credentials"])
+
+        subentries: list[ConfigSubentry] = []
+        try:
+            for cp_id in await client.async_get_chargepoint_ids():
+                cp_data = await client.async_get_chargepoint(cp_id)
+                cp_title = cp_data.get("displayName") or cp_id
+                subentries.append(_chargepoint_subentry(cp_id, cp_data))
+                for val in (cp_data.get("aliasMap") or {}).values():
+                    connector_id = val.get("id")
+                    if not connector_id:
+                        continue
+                    subentries.append(
+                        _connector_subentry(
+                            connector_id,
+                            cp_id,
+                            _connector_title(cp_data, cp_title, connector_id),
+                        )
+                    )
+        except CloudChargeAPIError as err:
+            _LOGGER.error("Migration failed: could not read chargepoints: %s", err)
+            return False
+        finally:
+            await client.async_close()
+
+        # Added only after every call succeeded, so a partial migration is never
+        # mistaken for a finished one on the next attempt.
+        for subentry in subentries:
+            hass.config_entries.async_add_subentry(entry, subentry)
+
+        _LOGGER.info("Migration complete: created %d subentries", len(subentries))
+
+    _async_assign_devices_to_subentries(hass, entry)
+    return True
+
+
+def _async_assign_devices_to_subentries(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> None:
+    """Move devices registered before subentries existed into their subentry.
+
+    Devices created by 0.5.x belong to the config entry itself
+    (config_subentry_id=None). Letting `async_get_or_create` or `async_add_entities`
+    re-register them under a subentry silently moves them, which HA deprecates and
+    will reject in 2027.8, so move them explicitly here instead.
+    """
+    device_registry = dr.async_get(hass)
+    instance_id = entry.data.get("instance_id") or "default"
+
+    subentry_ids: dict[str, str] = {}
+    for subentry in entry.subentries.values():
+        if subentry.subentry_type == "chargepoint":
+            subentry_ids[subentry.data["chargepoint_id"]] = subentry.subentry_id
+        elif subentry.subentry_type == "connector":
+            subentry_ids[subentry.data["connector_id"]] = subentry.subentry_id
+
+    if not subentry_ids:
+        return
+
+    for device in dr.async_entries_for_config_entry(device_registry, entry.entry_id):
+        # This integration uses 3-part identifiers, wider than the 2-tuple HA types
+        # them as, the same way ChargePointDevice/ConnectorDevice build them
+        for identifier in cast("set[tuple[str, ...]]", device.identifiers):
+            if len(identifier) != 3:
+                continue
+            domain, device_instance_id, device_id = identifier
+            if domain != DOMAIN or device_instance_id != instance_id:
+                continue
+            subentry_id = subentry_ids.get(device_id)
+            if subentry_id is None or device.config_subentry_id == subentry_id:
+                continue
+            _LOGGER.debug("Moving device %s to subentry %s", device_id, subentry_id)
+            device_registry.async_update_device(
+                device.id, new_config_subentry_id=subentry_id
+            )
+            break
 
 
 async def async_unload_entry(hass: HomeAssistant, entry) -> bool:
@@ -349,31 +415,43 @@ async def async_unload_entry(hass: HomeAssistant, entry) -> bool:
     return True
 
 
-async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry):
-    """Migrate old entry."""
+async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    """Migrate an old entry to the current version."""
     _LOGGER.debug(
         "Migrating configuration from version %s.%s",
         config_entry.version,
         config_entry.minor_version,
     )
 
-    if config_entry.version > 2:
+    if config_entry.version > CONFIG_ENTRY_VERSION:
         # This means the user has downgraded from a future version
         return False
 
-    new_data = {**config_entry.data}
-
     if config_entry.version == 1:
+        # Credentials moved into their own dict
+        new_data = {**config_entry.data}
         new_data["credentials"] = {
-            "user_id": config_entry.data["userId"],
-            "token": config_entry.data["token"],
+            "user_id": new_data.pop("userId"),
+            "token": new_data.pop("token"),
         }
-        del new_data["userId"]
-        del new_data["token"]
+        hass.config_entries.async_update_entry(
+            config_entry, data=new_data, version=2, minor_version=1
+        )
 
-    hass.config_entries.async_update_entry(
-        config_entry, data=new_data, minor_version=1, version=2
-    )
+    if config_entry.version == 2:
+        # Chargepoints and connectors became subentries
+        if not await _async_migrate_to_subentries(hass, config_entry):
+            return False
+        hass.config_entries.async_update_entry(
+            config_entry,
+            # "_setup_completed" tracked the subentry migration in the 0.6.0 betas
+            # and is superseded by the entry version
+            data={
+                k: v for k, v in config_entry.data.items() if k != "_setup_completed"
+            },
+            version=3,
+            minor_version=1,
+        )
 
     _LOGGER.debug(
         "Migration to configuration version %s.%s successful",
