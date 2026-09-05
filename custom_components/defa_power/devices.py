@@ -34,10 +34,11 @@ class ConnectorDevice:
             name=data.get("displayName") or alias or data["id"],
             sw_version=data["firmwareVersion"],
             serial_number=data["serialNumber"],
-            # Only linked when the chargepoint device is registered, which is
-            # not the case for chargepoints without their own subentry
-            **({"via_device_id": via_device_id} if via_device_id else {}),
         )
+        # Only linked when the chargepoint device is registered, which is not
+        # the case for chargepoints without their own subentry
+        if via_device_id:
+            self._device_info["via_device_id"] = via_device_id
 
     def get_device_info(self):
         """Return the device info."""

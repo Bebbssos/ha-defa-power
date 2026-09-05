@@ -1,0 +1,9 @@
+# The code in this repo follows Home Assistant core's import style, which
+# differs from ruff's defaults (core sorts plain `import x` and `from x import`
+# together within a section, and treats `homeassistant` as first-party).
+# Without this, editors flag every file with I001 "Import block is un-sorted".
+
+[lint.isort]
+force-sort-within-sections = true
+known-first-party = ["homeassistant"]
+combine-as-imports = true

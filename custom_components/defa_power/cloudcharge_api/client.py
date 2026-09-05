@@ -1,8 +1,8 @@
 """CloudCharge API client."""
 
 import asyncio
-import time
 from contextlib import asynccontextmanager
+import time
 from typing import Literal
 
 import aiohttp
@@ -29,6 +29,7 @@ from .models import (
     PrivateChargePoint,
     UserProfile,
 )
+
 
 # Swagger file for api can be found at https://prod.cloudcharge.se/services/user/swagger.json
 class CloudChargeAPIClient:
@@ -562,7 +563,7 @@ class CloudChargeAPIClient:
         self.__check_logged_in()
 
         async with (
-            aiohttp.ClientSession() as session,
+            self._session_for_use() as session,
             session.get(
                 f"{self.__base_url}/profile",
                 headers=self.__headers,

@@ -1,5 +1,7 @@
 """Custom services for the DEFA Power EV charger integration."""
 
+from __future__ import annotations
+
 import asyncio
 from typing import cast
 
@@ -14,8 +16,8 @@ from homeassistant.core import (
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv, device_registry as dr
 
-from .const import DOMAIN
 from .cloudcharge_api.models import EcoModeConfiguration, ManualSchedule
+from .const import DOMAIN
 from .models import RuntimeData
 
 SERVICE_SET_CURRENT_LIMIT = "set_current_limit"
@@ -445,7 +447,7 @@ async def async_setup_services(hass: HomeAssistant):
     )
 
 
-def get_charger_id_from_device(device: dr.DeviceEntry) -> str | None:
+def get_charger_id_from_device(device: dr.AnyDeviceEntry) -> str | None:
     """Get the charger ID from a device entry."""
     for identifier in device.identifiers:
         if len(identifier) == 3 and identifier[0] == DOMAIN:
@@ -455,7 +457,7 @@ def get_charger_id_from_device(device: dr.DeviceEntry) -> str | None:
 
 
 def get_runtime_data_from_device(
-    hass: HomeAssistant, device: dr.DeviceEntry
+    hass: HomeAssistant, device: dr.AnyDeviceEntry
 ) -> RuntimeData | None:
     """Retrieve the API client from the config entry runtime_data."""
 

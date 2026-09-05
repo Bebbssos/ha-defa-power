@@ -6,7 +6,9 @@ Home Assistant custom integration for DEFA Power / eRange EV chargers. Distribut
 
 ## No local toolchain
 
-There is **no build system, no test runner, no linter, no formatter config** in this repo. No `pyproject.toml`, `Makefile`, `tox.ini`, or pre-commit hooks. All automated checks happen in CI only.
+There is **no build system and no test runner** in this repo. No `pyproject.toml`, `Makefile`, `tox.ini`, or pre-commit hooks. All automated checks happen in CI only.
+
+The one exception is `.ruff.toml`, which only configures import sorting to match Home Assistant core's style (`force-sort-within-sections`, `homeassistant` as first-party). Without it, editors running ruff flag every file with I001. It selects no extra lint rules and there is no lint step in CI.
 
 To validate changes, push to GitHub — CI runs:
 1. **HACS validation** (`hacs/action@main`)

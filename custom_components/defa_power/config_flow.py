@@ -1,6 +1,7 @@
 """Config flow for DEFA power integration."""
 
-from collections.abc import Mapping
+from collections.abc import AsyncGenerator, Mapping
+from contextlib import asynccontextmanager
 import logging
 import re
 from typing import Any
@@ -112,6 +113,29 @@ def get_instance_id():
 def normalize_phone_number(phone_number: str) -> str:
     """Normalize phone number to remove non-numeric characters."""
     return re.sub(r"\D", "", phone_number)
+
+
+@asynccontextmanager
+async def async_client_for_entry(
+    entry: config_entries.ConfigEntry,
+) -> AsyncGenerator[CloudChargeAPIClient]:
+    """Yield a client for an entry.
+
+    Reuses the client of a loaded entry so its session and request throttling
+    are shared. Falls back to a temporary client, closed on exit, when the entry
+    is not loaded (Home Assistant removes runtime_data on unload).
+    """
+    runtime_data = getattr(entry, "runtime_data", None)
+    if runtime_data is not None:
+        yield runtime_data["client"]
+        return
+
+    client = CloudChargeAPIClient(API_BASE_URL)
+    client.import_credentials(entry.data["credentials"])
+    try:
+        yield client
+    finally:
+        await client.async_close()
 
 
 class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -307,7 +331,7 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def _async_finish_login(self, data: dict[str, Any]):
         """Shared post-login handler: fetch profile, then route to device selection or update."""
         self._login_data = data
-        client = CloudChargeAPIClient(API_BASE_URL)
+        client = self.__get_client()
         client.import_credentials(data["credentials"])
         try:
             profile = await client.async_get_profile()
@@ -327,7 +351,7 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> config_entries.ConfigFlowResult:
         """Select which connectors to add during initial setup."""
         if self._connector_options is None:
-            client = CloudChargeAPIClient(API_BASE_URL)
+            client = self.__get_client()
             assert self._login_data is not None
             client.import_credentials(self._login_data["credentials"])
             try:
@@ -497,31 +521,30 @@ class ConnectorSubentryFlowHandler(ConfigSubentryFlow):
         self, entry: config_entries.ConfigEntry
     ) -> tuple[list[SelectOptionDict], dict[str, str]]:
         """Fetch available connectors, excluding already-added ones."""
-        client = CloudChargeAPIClient(API_BASE_URL)
-        client.import_credentials(entry.data["credentials"])
-
         already_added = {
             sub.data["connector_id"]
             for sub in entry.subentries.values()
             if sub.subentry_type == "connector"
         }
 
-        chargepoint_ids = await client.async_get_chargepoint_ids()
         options: list[SelectOptionDict] = []
         titles: dict[str, str] = {}
 
-        for cp_id in chargepoint_ids:
-            cp_data = await client.async_get_chargepoint(cp_id)
-            cp_name = cp_data.get("displayName") or cp_id
-            for alias, val in (cp_data.get("aliasMap") or {}).items():
-                conn_id = val.get("id")
-                if not conn_id or conn_id in already_added:
-                    continue
-                conn_name = val.get("displayName") or alias
-                key = f"{conn_id}:{cp_id}"
-                label = f"{conn_name} ({cp_name})"
-                options.append(SelectOptionDict(value=key, label=label))
-                titles[key] = label
+        async with async_client_for_entry(entry) as client:
+            chargepoint_ids = await client.async_get_chargepoint_ids()
+
+            for cp_id in chargepoint_ids:
+                cp_data = await client.async_get_chargepoint(cp_id)
+                cp_name = cp_data.get("displayName") or cp_id
+                for alias, val in (cp_data.get("aliasMap") or {}).items():
+                    conn_id = val.get("id")
+                    if not conn_id or conn_id in already_added:
+                        continue
+                    conn_name = val.get("displayName") or alias
+                    key = f"{conn_id}:{cp_id}"
+                    label = f"{conn_name} ({cp_name})"
+                    options.append(SelectOptionDict(value=key, label=label))
+                    titles[key] = label
 
         return options, titles
 
@@ -581,29 +604,28 @@ class ChargepointSubentryFlowHandler(ConfigSubentryFlow):
         self, entry: config_entries.ConfigEntry
     ) -> tuple[list[SelectOptionDict], dict[str, str]]:
         """Fetch available chargepoints, excluding already-added ones."""
-        client = CloudChargeAPIClient(API_BASE_URL)
-        client.import_credentials(entry.data["credentials"])
-
         already_added = {
             sub.data["chargepoint_id"]
             for sub in entry.subentries.values()
             if sub.subentry_type == "chargepoint"
         }
 
-        chargepoint_ids = await client.async_get_chargepoint_ids()
         options: list[SelectOptionDict] = []
         titles: dict[str, str] = {}
 
-        for cp_id in chargepoint_ids:
-            if cp_id in already_added:
-                continue
-            try:
-                cp_data = await client.async_get_chargepoint(cp_id)
-                cp_name = cp_data.get("displayName") or cp_id
-            except CloudChargeAPIError:
-                cp_name = cp_id
-            options.append(SelectOptionDict(value=cp_id, label=cp_name))
-            titles[cp_id] = cp_name
+        async with async_client_for_entry(entry) as client:
+            chargepoint_ids = await client.async_get_chargepoint_ids()
+
+            for cp_id in chargepoint_ids:
+                if cp_id in already_added:
+                    continue
+                try:
+                    cp_data = await client.async_get_chargepoint(cp_id)
+                    cp_name = cp_data.get("displayName") or cp_id
+                except CloudChargeAPIError:
+                    cp_name = cp_id
+                options.append(SelectOptionDict(value=cp_id, label=cp_name))
+                titles[cp_id] = cp_name
 
         return options, titles
 
