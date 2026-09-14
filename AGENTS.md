@@ -2,7 +2,7 @@
 
 ## What this repo is
 
-Home Assistant custom integration for DEFA Power / eRange EV chargers. Distributed via HACS. Communicates with the CloudCharge API (`https://prod.cloudcharge.se/services/user`).
+Home Assistant custom integration for DEFA Power / eRange EV chargers. Distributed via HACS. Communicates with the CloudCharge API (`https://prod.cloudcharge.se/services/user`). Also reads DEFA Balancer load balancers directly from the local network (UDP multicast), which needs no CloudCharge account.
 
 ## No local toolchain
 
@@ -25,6 +25,11 @@ There is no way to run these locally without installing the tools manually.
 All integration code lives in `custom_components/defa_power/`. This is the only directory that matters for the integration itself.
 
 ## Architecture
+
+**Two kinds of config entry** share the domain, told apart by `entry.data["entry_type"]` (`is_balancer_entry()` in `models.py`; entries without the key are CloudCharge entries from before balancer support). `async_setup_entry`, `async_unload_entry`, `async_migrate_entry`, the sensor platform, diagnostics, `async_get_supported_subentry_types` and `async_supports_options_flow` all branch on it. Keep any future CloudCharge entry migration behind that check — balancer entries carry no `credentials`.
+
+- **CloudCharge entry** (`entry_type` absent or `"cloudcharge"`): one account; `chargepoint` and `connector` subentries. Everything below applies to these.
+- **Balancer entry** (`entry_type == "balancer"`): one listening interface (`interface_ip`); `balancer` subentries keyed by serial. One `BalancerListener` per entry joins `234.222.250.1:57082` on that interface (`SO_REUSEADDR`/`SO_REUSEPORT`, so a config-flow scan can run beside it) and dispatches decoded packets to one push-based `BalancerCoordinator` per serial. The coordinator's `update_interval` is only a watchdog: `async_set_updated_data` reschedules it on every packet, so `_async_update_data` runs — and raises `UpdateFailed` — only after `BALANCER_STALE_TIMEOUT` of silence. Setup waits at most `BALANCER_FIRST_BROADCAST_TIMEOUT` for each balancer's first packet, then continues regardless; entities of a silent balancer just go unavailable. Only the `sensor` platform is forwarded. The wire format lives in `balancer/protocol.py`, reverse engineered — bytes 15..20 and 29..33 are still unknown, and the diagnostics dump includes the raw payload so they can be studied. Balancer device identifiers are `(DOMAIN, "balancer", serial)` and unique ids `balancer_{serial}_{key}`: no instance id, the serial is a real hardware id.
 
 **Three coordinators** are created per connector:
 - `CloudChargeChargepointCoordinator` — polls every 15 min

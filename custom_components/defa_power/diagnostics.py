@@ -3,12 +3,18 @@
 from collections.abc import Callable
 from functools import partial
 import time
-from typing import Any
+from typing import Any, cast
 
 from homeassistant.components.diagnostics.util import async_redact_data
 from homeassistant.core import HomeAssistant
 
-from .models import DefaPowerConfigEntry
+from .balancer.protocol import DEVICE_ID_LENGTH
+from .const import CONF_INTERFACE_IP
+from .models import (
+    DefaPowerBalancerConfigEntry,
+    DefaPowerConfigEntry,
+    is_balancer_entry,
+)
 from .utils.id_anonymizer import IdAnonymizer
 
 
@@ -19,6 +25,11 @@ async def async_get_config_entry_diagnostics(
 
     data = {}
     id_anonymizer = IdAnonymizer()
+
+    if is_balancer_entry(entry):
+        return _get_balancer_diagnostics(
+            cast("DefaPowerBalancerConfigEntry", entry), id_anonymizer
+        )
 
     data["chargepoints"] = {}
     for chargepoint_id, val in entry.runtime_data["chargepoints"].items():
@@ -41,6 +52,38 @@ async def async_get_config_entry_diagnostics(
 
     data["api_responses"] = await _async_get_api_responses(entry, id_anonymizer)
 
+    return data
+
+
+def _get_balancer_diagnostics(
+    entry: DefaPowerBalancerConfigEntry, id_anonymizer: IdAnonymizer
+) -> dict[str, Any]:
+    """Return diagnostics for a balancer entry."""
+    listener = entry.runtime_data["listener"]
+    data: dict[str, Any] = {
+        "interface_ip": entry.data[CONF_INTERFACE_IP],
+        "balancers": {},
+        # Every balancer heard on the interface, including ones not added
+        "heard_serials": [
+            id_anonymizer.anonymize(serial, "anonymized_serial")
+            for serial in listener.last_seen
+        ],
+    }
+    for serial, val in entry.runtime_data["balancers"].items():
+        coordinator = val["coordinator"]
+        last = coordinator.data
+        d: dict[str, Any] = {
+            "last_update_success": coordinator.last_update_success,
+            "last_broadcast": None,
+        }
+        if last is not None:
+            # The raw packet is kept for studying its unknown fields; its device
+            # id (which is the serial) is dropped
+            d["last_broadcast"] = {
+                **{k: v for k, v in last.items() if k not in ("serial", "raw")},
+                "raw_payload": " ".join(last["raw"].split()[DEVICE_ID_LENGTH:]),
+            }
+        data["balancers"][id_anonymizer.anonymize(serial, "anonymized_serial")] = d
     return data
 
 

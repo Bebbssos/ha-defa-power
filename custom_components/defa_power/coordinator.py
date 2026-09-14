@@ -5,12 +5,15 @@ from collections.abc import Callable
 import copy
 from datetime import timedelta
 import logging
+import time
 from typing import Any
 
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
+from .balancer.listener import BalancerListener
+from .balancer.protocol import BalancerData
 from .cloudcharge_api.client import CloudChargeAPIClient
 from .cloudcharge_api.exceptions import CloudChargeAPIError, CloudChargeAuthError
 from .cloudcharge_api.models import (
@@ -19,6 +22,7 @@ from .cloudcharge_api.models import (
     EcoModeConfigurationRequest,
     ManualSchedules,
 )
+from .const import BALANCER_STALE_TIMEOUT
 
 CONF_TOKEN = "token"
 CONF_USER_ID = "userId"
@@ -344,3 +348,57 @@ class CloudChargeActiveScheduleCoordinator(
                 raise ConfigEntryAuthFailed from err
             except CloudChargeAPIError as err:
                 raise UpdateFailed(f"Error communicating with API: {err}") from err
+
+
+class BalancerCoordinator(DataUpdateCoordinator[BalancerData]):
+    """DEFA Balancer coordinator.
+
+    Data is pushed by the multicast listener rather than polled. The update
+    interval only serves as a watchdog: `async_set_updated_data` reschedules
+    it on every broadcast, so `_async_update_data` runs only when the balancer
+    has been silent for BALANCER_STALE_TIMEOUT, and marks the data stale.
+    """
+
+    def __init__(
+        self, serial: str, hass: HomeAssistant, listener: BalancerListener
+    ) -> None:
+        """Initialize coordinator."""
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=f"DEFA Balancer {serial}",
+            update_interval=timedelta(seconds=BALANCER_STALE_TIMEOUT),
+            always_update=True,
+        )
+        self.serial = serial
+        self.listener = listener
+        # Set once the balancer has been heard, so setup can wait for it
+        self.first_broadcast = asyncio.Event()
+        self._unregister = listener.async_register(serial, self._async_packet_received)
+
+    @callback
+    def _async_packet_received(self, data: BalancerData) -> None:
+        """Handle a broadcast from this balancer."""
+        self.async_set_updated_data(data)
+        self.first_broadcast.set()
+
+    async def _async_update_data(self) -> BalancerData:
+        """Return the latest broadcast, or fail when it is too old."""
+        seen = self.listener.last_seen.get(self.serial)
+        if seen is None:
+            raise UpdateFailed(
+                f"No broadcast received from balancer {self.serial} on "
+                f"{self.listener.interface_ip}"
+            )
+        data, received_at = seen
+        if time.monotonic() - received_at > BALANCER_STALE_TIMEOUT:
+            raise UpdateFailed(
+                f"No broadcast received from balancer {self.serial} for "
+                f"{BALANCER_STALE_TIMEOUT} seconds"
+            )
+        return data
+
+    @callback
+    def async_shutdown_listener(self) -> None:
+        """Stop receiving broadcasts."""
+        self._unregister()

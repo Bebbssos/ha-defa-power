@@ -1,6 +1,32 @@
 {
   "config": {
     "step": {
+      "user": {
+        "title": "What do you want to add?",
+        "description": "CloudCharge is the cloud service your DEFA Power charger reports to; it is needed to control and monitor chargers. A DEFA Balancer is read directly from the local network and needs no account.",
+        "menu_options": {
+          "cloudcharge": "CloudCharge account (chargers)",
+          "balancer": "DEFA Balancer (local network)"
+        }
+      },
+      "balancer": {
+        "title": "Listen for balancers",
+        "description": "The balancer announces its readings with a multicast on the local network. Pick the address of the Home Assistant network interface that is on the same network as the balancer.",
+        "data": {
+          "interface_ip": "Interface IP address"
+        }
+      },
+      "balancer_scan": {
+        "title": "Scanning for balancers",
+        "description": "Listening for balancer broadcasts..."
+      },
+      "balancer_select": {
+        "title": "Add balancers",
+        "description": "{count} balancer(s) found. Untick any you do not want, or type the serial of a balancer that was not found.",
+        "data": {
+          "serials": "Balancers"
+        }
+      },
       "reauth_confirm": {
         "title": "Re-authentication required",
         "description": "DEFA Power needs to re-authenticate your account"
@@ -47,7 +73,8 @@
     "abort": {
       "existing_entry_not_found": "Existing entry not found.",
       "reauth_successful": "Re-authentication successful",
-      "reconfigure_successful": "Re-configuration successful"
+      "reconfigure_successful": "Re-configuration successful",
+      "already_configured": "Balancers on this interface are already set up. Add more from the existing entry instead."
     },
     "error": {
       "phonenumber_request_error": "Login request error",
@@ -59,7 +86,13 @@
       "phonenumber_no_login_attempts_found": "No login attempts found. Please try sending code again.",
       "manual_entry_request_error": "Request error",
       "manual_entry_auth_error": "Invalid user-id or token",
-      "unknown": "Unknown error occurred"
+      "unknown": "Unknown error occurred",
+      "invalid_ip": "Enter a valid IPv4 address",
+      "cannot_listen": "Could not listen for broadcasts on this address. Check that it is an address of a Home Assistant network interface.",
+      "no_balancers_selected": "Select or enter at least one serial"
+    },
+    "progress": {
+      "balancer_scan": "Listening for balancer broadcasts..."
     }
   },
   "config_subentries": {
@@ -101,6 +134,36 @@
         "already_configured": "This chargepoint has already been added.",
         "cannot_connect": "Could not connect to the CloudCharge API.",
         "no_chargepoints_available": "No chargepoints available to add. All chargepoints may already be added."
+      }
+    },
+    "balancer": {
+      "initiate_flow": {
+        "user": "Add balancer"
+      },
+      "entry_type": "Balancer",
+      "step": {
+        "user": {
+          "title": "Scanning for balancers",
+          "description": "Listening for balancer broadcasts..."
+        },
+        "select": {
+          "title": "Add balancer",
+          "description": "{count} balancer(s) found that are not added yet. Pick one, or type the serial of a balancer that was not found.",
+          "data": {
+            "serial": "Balancer"
+          }
+        }
+      },
+      "progress": {
+        "balancer_scan": "Listening for balancer broadcasts..."
+      },
+      "error": {
+        "no_balancers_selected": "Select or enter a serial",
+        "already_configured": "This balancer has already been added."
+      },
+      "abort": {
+        "already_configured": "This balancer has already been added.",
+        "cannot_listen": "Could not listen for broadcasts on the interface of this entry."
       }
     }
   },
@@ -242,6 +305,18 @@
       },
       "defa_power_paused_until": {
         "name": "Paused until"
+      },
+      "defa_power_current_l1": {
+        "name": "Current L1"
+      },
+      "defa_power_current_l2": {
+        "name": "Current L2"
+      },
+      "defa_power_current_l3": {
+        "name": "Current L3"
+      },
+      "defa_power_last_boot": {
+        "name": "Last boot"
       }
     },
     "binary_sensor": {

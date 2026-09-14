@@ -16,6 +16,7 @@ This is a custom integration for Home Assistant that allows you to control and m
 - See what is pausing smart charging (eco mode or a manual schedule) and until when it is paused.
 - Override the active smart charging schedule to start charging immediately.
 - Actions to view, create, update, and delete manual charging schedules.
+- Read a **DEFA Balancer** (the load balancing accessory) directly from your local network: per phase current, firmware version and last boot time. No CloudCharge account needed for this.
 
 #### Compatibility
 
@@ -46,7 +47,18 @@ This is a custom integration for Home Assistant that allows you to control and m
 1. In Home Assistant, go to `Configuration` > `Integrations`.
 2. Click on the `+ Add Integration` button in the bottom right corner.
 3. Search for `DEFA Power` and select it.
-4. Follow the on-screen instructions to complete the setup.
+4. Choose what to add: a **CloudCharge account** for your chargers, or a **DEFA Balancer** on your local network. You can add both, as separate entries.
+5. Follow the on-screen instructions to complete the setup.
+
+#### DEFA Balancer
+
+The balancer broadcasts its readings on the local network (UDP multicast `234.222.250.1:57082`), so Home Assistant must have a network interface on the same network (VLAN) as the balancer.
+
+1. Pick the IP address of that Home Assistant interface. The address Home Assistant uses for multicast is preselected, and any address can be typed.
+2. Home Assistant listens for 10 seconds and lists the balancers it heard, with firmware version and current readings. Untick any you do not want, or type the serial of a balancer that was not heard.
+3. More balancers can be added later from the entry's page with **Add balancer**, and the interface can be changed with **Reconfigure**.
+
+Each balancer becomes a device with current per phase (L1/L2/L3), firmware version and last boot time. If no broadcast is received for a minute the entities become unavailable.
 
 #### Configuration Options
 

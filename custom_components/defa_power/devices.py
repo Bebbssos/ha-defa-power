@@ -43,3 +43,24 @@ class ConnectorDevice:
     def get_device_info(self):
         """Return the device info."""
         return self._device_info
+
+
+class BalancerDevice:
+    """Representation of a DEFA Balancer device."""
+
+    def __init__(self, serial: str, firmware_version: str | None = None) -> None:
+        """Initialize the device."""
+        # The serial is printed on the balancer and is stable across re-adding
+        # the entry, so no instance id is mixed into the identifier
+        self._device_info = DeviceInfo(
+            identifiers={(DOMAIN, "balancer", serial)},  # type: ignore[arg-type]
+            manufacturer="DEFA",
+            model="Balancer",
+            name=f"Balancer {serial}",
+            serial_number=serial,
+            sw_version=firmware_version,
+        )
+
+    def get_device_info(self):
+        """Return the device info."""
+        return self._device_info

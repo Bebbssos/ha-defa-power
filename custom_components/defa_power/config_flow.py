@@ -1,7 +1,9 @@
 """Config flow for DEFA power integration."""
 
+import asyncio
 from collections.abc import AsyncGenerator, Mapping
 from contextlib import asynccontextmanager
+import ipaddress
 import logging
 import re
 from typing import Any
@@ -10,8 +12,13 @@ import uuid
 import voluptuous as vol
 
 from homeassistant import config_entries, core
-from homeassistant.config_entries import ConfigFlowResult, ConfigSubentryFlow
-from homeassistant.core import callback
+from homeassistant.components import network
+from homeassistant.config_entries import (
+    ConfigFlowResult,
+    ConfigSubentryData,
+    ConfigSubentryFlow,
+)
+from homeassistant.core import HomeAssistant, callback
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.selector import (
     NumberSelector,
@@ -23,6 +30,8 @@ from homeassistant.helpers.selector import (
     SelectSelectorMode,
 )
 
+from .balancer.listener import async_scan_balancers
+from .balancer.protocol import BalancerData
 from .cloudcharge_api.client import CloudChargeAPIClient
 from .cloudcharge_api.exceptions import (
     CloudChargeAPIError,
@@ -35,15 +44,21 @@ from .cloudcharge_api.exceptions import (
 )
 from .const import (
     API_BASE_URL,
+    BALANCER_SCAN_TIMEOUT,
+    CONF_BALANCER_SERIAL,
+    CONF_ENTRY_TYPE,
+    CONF_INTERFACE_IP,
     CONF_REQUEST_INTERVAL_MS,
     CONFIG_ENTRY_MINOR_VERSION,
     CONFIG_ENTRY_VERSION,
     DEFAULT_REQUEST_INTERVAL_MS,
     DOMAIN,
+    ENTRY_TYPE_BALANCER,
     INITIAL_CHARGEPOINT_IDS,
     INITIAL_CONNECTOR_IDS,
     NAME,
 )
+from .models import is_balancer_entry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -53,6 +68,7 @@ CONF_DEV_TOKEN_OPTIONS = "dev_token_options"
 CONF_CUSTOM_DEV_TOKEN = "custom_dev_token"
 CONF_USER_ID = "user_id"
 CONF_TOKEN = "token"
+CONF_BALANCER_SERIALS = "serials"
 
 SEND_CODE_SCHEMA = vol.Schema(
     {
@@ -119,6 +135,76 @@ def normalize_phone_number(phone_number: str) -> str:
     return re.sub(r"\D", "", phone_number)
 
 
+def normalize_balancer_serial(serial: str) -> str:
+    """Normalize a serial typed by the user.
+
+    The balancer identifies itself as "L4" followed by the serial; accept that
+    full device id too in case it is what is printed on the unit.
+    """
+    serial = serial.strip().upper()
+    if len(serial) == 11 and serial.startswith("L4"):
+        serial = serial[2:]
+    return serial
+
+
+def is_ipv4_address(value: str) -> bool:
+    """Return whether the value is a plain IPv4 address."""
+    try:
+        return ipaddress.ip_address(value).version == 4
+    except ValueError:
+        return False
+
+
+async def async_interface_ip_schema(
+    hass: HomeAssistant, current: str | None = None
+) -> vol.Schema:
+    """Build the schema asking for the interface to receive balancer multicast on.
+
+    Offers the host's own IPv4 addresses, defaulting to the one Home Assistant
+    uses for multicast, while still allowing any address to be typed.
+    """
+    options = [
+        SelectOptionDict(value=str(ip), label=str(ip))
+        for ip in await network.async_get_enabled_source_ips(hass)
+        if ip.version == 4 and not ip.is_loopback
+    ]
+    default = current or await network.async_get_source_ip(hass)
+    if default and all(option["value"] != default for option in options):
+        options.insert(0, SelectOptionDict(value=default, label=default))
+
+    field = (
+        vol.Required(CONF_INTERFACE_IP, default=default)
+        if default
+        else vol.Required(CONF_INTERFACE_IP)
+    )
+    return vol.Schema(
+        {
+            field: SelectSelector(
+                SelectSelectorConfig(
+                    options=options,
+                    custom_value=True,
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            )
+        }
+    )
+
+
+def balancer_select_options(found: dict[str, BalancerData]) -> list[SelectOptionDict]:
+    """Build select options for balancers heard during a scan."""
+    return [
+        SelectOptionDict(
+            value=serial,
+            label=(
+                f"{serial} (firmware {data['firmware_version'] or '?'}, "
+                f"{data['current_l1']:.1f} / {data['current_l2']:.1f} / "
+                f"{data['current_l3']:.1f} A)"
+            ),
+        )
+        for serial, data in sorted(found.items())
+    ]
+
+
 @asynccontextmanager
 async def async_client_for_entry(
     entry: config_entries.ConfigEntry,
@@ -158,6 +244,10 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     # share one client so its cookie jar keeps them on that server, otherwise
     # /login fails with "No loginAttempts found".
     client: CloudChargeAPIClient | None = None
+    _balancer_interface_ip: str | None = None
+    _balancer_scan_task: asyncio.Task[dict[str, BalancerData]] | None = None
+    _balancer_scan_result: dict[str, BalancerData] | None = None
+    _balancer_scan_error: str | None = None
 
     def __get_client(self) -> CloudChargeAPIClient:
         """Return the client shared by all steps of this flow."""
@@ -172,14 +262,154 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             client = self.client
             self.client = None
             self.hass.async_create_task(client.async_close())
+        if self._balancer_scan_task is not None:
+            self._balancer_scan_task.cancel()
+            self._balancer_scan_task = None
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
-        """Handle the initial step."""
+        """Handle the initial step: pick what kind of entry to add."""
+        return self.async_show_menu(
+            step_id="user", menu_options=["cloudcharge", "balancer"]
+        )
+
+    async def async_step_cloudcharge(self, user_input: dict[str, Any] | None = None):
+        """Add a CloudCharge account."""
         return await self.async_step_choose_method()
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None):
         """Handle the reconfigure."""
+        if is_balancer_entry(self._get_reconfigure_entry()):
+            return await self.async_step_balancer()
         return await self.async_step_choose_method()
+
+    async def async_step_balancer(self, user_input: dict[str, Any] | None = None):
+        """Ask which interface to listen for balancer broadcasts on."""
+        errors: dict[str, str] = {}
+        if self._balancer_scan_error is not None:
+            errors["base"] = self._balancer_scan_error
+            self._balancer_scan_error = None
+            # Coming back from a failed scan the flow manager hands over the
+            # input that started it; treating it as a new submit would scan again
+            user_input = None
+
+        if user_input is not None:
+            interface_ip = user_input[CONF_INTERFACE_IP].strip()
+            if not is_ipv4_address(interface_ip):
+                errors["base"] = "invalid_ip"
+            elif self.source == config_entries.SOURCE_RECONFIGURE:
+                return self.async_update_reload_and_abort(
+                    self._get_reconfigure_entry(),
+                    data_updates={CONF_INTERFACE_IP: interface_ip},
+                    reason="reconfigure_successful",
+                )
+            else:
+                self._async_abort_entries_match(
+                    {
+                        CONF_ENTRY_TYPE: ENTRY_TYPE_BALANCER,
+                        CONF_INTERFACE_IP: interface_ip,
+                    }
+                )
+                self._balancer_interface_ip = interface_ip
+                return await self.async_step_balancer_scan()
+
+        current = self._balancer_interface_ip
+        if current is None and self.source == config_entries.SOURCE_RECONFIGURE:
+            current = self._get_reconfigure_entry().data.get(CONF_INTERFACE_IP)
+
+        return self.async_show_form(
+            step_id="balancer",
+            data_schema=await async_interface_ip_schema(self.hass, current),
+            errors=errors,
+        )
+
+    async def async_step_balancer_scan(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Listen for balancers on the chosen interface."""
+        assert self._balancer_interface_ip is not None
+        if self._balancer_scan_task is None:
+            self._balancer_scan_task = self.hass.async_create_task(
+                async_scan_balancers(
+                    self.hass, self._balancer_interface_ip, BALANCER_SCAN_TIMEOUT
+                )
+            )
+        if not self._balancer_scan_task.done():
+            return self.async_show_progress(
+                step_id="balancer_scan",
+                progress_action="balancer_scan",
+                progress_task=self._balancer_scan_task,
+            )
+
+        task, self._balancer_scan_task = self._balancer_scan_task, None
+        try:
+            self._balancer_scan_result = task.result()
+        except OSError as err:
+            _LOGGER.error(
+                "Could not listen for balancers on %s: %s",
+                self._balancer_interface_ip,
+                err,
+            )
+            self._balancer_scan_error = "cannot_listen"
+            return self.async_show_progress_done(next_step_id="balancer")
+        return self.async_show_progress_done(next_step_id="balancer_select")
+
+    async def async_step_balancer_select(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Pick the balancers to add, from the scan or typed manually."""
+        assert self._balancer_interface_ip is not None
+        found = self._balancer_scan_result or {}
+        errors: dict[str, str] = {}
+
+        # When the scan finishes at once the flow manager arrives here with the
+        # interface step's input, which is not a submit of this form
+        if user_input is not None and CONF_BALANCER_SERIALS in user_input:
+            serials = list(
+                dict.fromkeys(
+                    normalized
+                    for serial in user_input[CONF_BALANCER_SERIALS]
+                    if (normalized := normalize_balancer_serial(serial))
+                )
+            )
+            if not serials:
+                errors["base"] = "no_balancers_selected"
+            else:
+                return self.async_create_entry(
+                    title=f"DEFA Balancer ({self._balancer_interface_ip})",
+                    data={
+                        CONF_ENTRY_TYPE: ENTRY_TYPE_BALANCER,
+                        CONF_INTERFACE_IP: self._balancer_interface_ip,
+                    },
+                    subentries=[
+                        ConfigSubentryData(
+                            data={CONF_BALANCER_SERIAL: serial},
+                            subentry_type="balancer",
+                            title=f"Balancer {serial}",
+                            unique_id=serial,
+                        )
+                        for serial in serials
+                    ],
+                )
+
+        return self.async_show_form(
+            step_id="balancer_select",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_BALANCER_SERIALS, default=sorted(found)
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=balancer_select_options(found),
+                            multiple=True,
+                            custom_value=True,
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    )
+                }
+            ),
+            errors=errors,
+            description_placeholders={"count": str(len(found))},
+        )
 
     async def async_step_reauth(self, entry_data: Mapping[str, Any]):
         """Perform reauth upon an API authentication error."""
@@ -457,10 +687,20 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         cls, config_entry: config_entries.ConfigEntry
     ) -> dict[str, type[ConfigSubentryFlow]]:
         """Return subentry types supported by this integration."""
+        if is_balancer_entry(config_entry):
+            return {"balancer": BalancerSubentryFlowHandler}
         return {
             "connector": ConnectorSubentryFlowHandler,
             "chargepoint": ChargepointSubentryFlowHandler,
         }
+
+    @classmethod
+    @callback
+    def async_supports_options_flow(
+        cls, config_entry: config_entries.ConfigEntry
+    ) -> bool:
+        """Return whether the entry has options; only CloudCharge entries do."""
+        return not is_balancer_entry(config_entry)
 
     @staticmethod
     @core.callback
@@ -632,6 +872,103 @@ class ChargepointSubentryFlowHandler(ConfigSubentryFlow):
                 titles[cp_id] = cp_name
 
         return options, titles
+
+
+class BalancerSubentryFlowHandler(ConfigSubentryFlow):
+    """Handle adding a balancer subentry."""
+
+    _scan_task: asyncio.Task[dict[str, BalancerData]] | None = None
+    _found: dict[str, BalancerData] | None = None
+
+    @callback
+    def async_remove(self) -> None:
+        """Clean up when the flow is removed."""
+        if self._scan_task is not None:
+            self._scan_task.cancel()
+            self._scan_task = None
+
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.SubentryFlowResult:
+        """Listen for balancers on the entry's interface."""
+        entry = self._get_entry()
+        if self._scan_task is None:
+            self._scan_task = self.hass.async_create_task(
+                async_scan_balancers(
+                    self.hass, entry.data[CONF_INTERFACE_IP], BALANCER_SCAN_TIMEOUT
+                )
+            )
+        if not self._scan_task.done():
+            return self.async_show_progress(
+                step_id="user",
+                progress_action="balancer_scan",
+                progress_task=self._scan_task,
+            )
+
+        task, self._scan_task = self._scan_task, None
+        try:
+            self._found = task.result()
+        except OSError as err:
+            _LOGGER.error(
+                "Could not listen for balancers on %s: %s",
+                entry.data[CONF_INTERFACE_IP],
+                err,
+            )
+            return self.async_show_progress_done(next_step_id="cannot_listen")
+        return self.async_show_progress_done(next_step_id="select")
+
+    async def async_step_cannot_listen(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.SubentryFlowResult:
+        """Abort because the interface could not be listened on."""
+        return self.async_abort(reason="cannot_listen")
+
+    async def async_step_select(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.SubentryFlowResult:
+        """Pick the balancer to add, from the scan or typed manually."""
+        entry = self._get_entry()
+        already_added = {
+            sub.data[CONF_BALANCER_SERIAL]
+            for sub in entry.subentries.values()
+            if sub.subentry_type == "balancer"
+        }
+        found = {
+            serial: data
+            for serial, data in (self._found or {}).items()
+            if serial not in already_added
+        }
+        errors: dict[str, str] = {}
+
+        if user_input is not None and CONF_BALANCER_SERIAL in user_input:
+            serial = normalize_balancer_serial(user_input[CONF_BALANCER_SERIAL])
+            if not serial:
+                errors["base"] = "no_balancers_selected"
+            elif serial in already_added:
+                errors["base"] = "already_configured"
+            else:
+                return self.async_create_entry(
+                    title=f"Balancer {serial}",
+                    data={CONF_BALANCER_SERIAL: serial},
+                    unique_id=serial,
+                )
+
+        return self.async_show_form(
+            step_id="select",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_BALANCER_SERIAL): SelectSelector(
+                        SelectSelectorConfig(
+                            options=balancer_select_options(found),
+                            custom_value=True,
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    )
+                }
+            ),
+            errors=errors,
+            description_placeholders={"count": str(len(found))},
+        )
 
 
 class DefaPowerOptionsFlowHandler(config_entries.OptionsFlow):

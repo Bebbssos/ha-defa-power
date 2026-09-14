@@ -1,6 +1,32 @@
 {
     "config": {
         "step": {
+            "user": {
+                "title": "Vad vill du lägga till?",
+                "description": "CloudCharge är molntjänsten som din DEFA Power-laddare rapporterar till; den behövs för att styra och övervaka laddare. En DEFA Balancer läses direkt från det lokala nätverket och behöver inget konto.",
+                "menu_options": {
+                    "cloudcharge": "CloudCharge-konto (laddare)",
+                    "balancer": "DEFA Balancer (lokalt nätverk)"
+                }
+            },
+            "balancer": {
+                "title": "Lyssna efter balancers",
+                "description": "Balancern skickar sina mätvärden med multicast på det lokala nätverket. Välj adressen för det nätverksgränssnitt i Home Assistant som sitter på samma nätverk som balancern.",
+                "data": {
+                    "interface_ip": "Gränssnittets IP-adress"
+                }
+            },
+            "balancer_scan": {
+                "title": "Söker efter balancers",
+                "description": "Lyssnar efter balancer-utsändningar..."
+            },
+            "balancer_select": {
+                "title": "Lägg till balancers",
+                "description": "{count} balancer(s) hittades. Avmarkera de du inte vill ha, eller skriv in serienumret för en balancer som inte hittades.",
+                "data": {
+                    "serials": "Balancers"
+                }
+            },
             "reauth_confirm": {
                 "title": "Återautentisering krävs",
                 "description": "DEFA Power behöver återautentisera ditt konto"
@@ -47,7 +73,8 @@
         "abort": {
             "existing_entry_not_found": "Befintlig post hittades inte.",
             "reauth_successful": "Återautentisering lyckades",
-            "reconfigure_successful": "Omkonfiguration lyckades"
+            "reconfigure_successful": "Omkonfiguration lyckades",
+            "already_configured": "Balancers på det här gränssnittet är redan konfigurerade. Lägg till fler från den befintliga posten i stället."
         },
         "error": {
             "phonenumber_request_error": "Inloggningsbegäran misslyckades",
@@ -59,7 +86,13 @@
             "phonenumber_no_login_attempts_found": "Inga inloggningsförsök hittades. Försök att skicka koden igen.",
             "manual_entry_request_error": "Begäran misslyckades",
             "manual_entry_auth_error": "Ogiltigt användar-id eller token",
-            "unknown": "Okänt fel inträffade"
+            "unknown": "Okänt fel inträffade",
+            "invalid_ip": "Ange en giltig IPv4-adress",
+            "cannot_listen": "Kunde inte lyssna efter utsändningar på den här adressen. Kontrollera att det är en adress för ett av Home Assistants nätverksgränssnitt.",
+            "no_balancers_selected": "Välj eller ange minst ett serienummer"
+        },
+        "progress": {
+            "balancer_scan": "Lyssnar efter balancer-utsändningar..."
         }
     },
     "config_subentries": {
@@ -101,6 +134,36 @@
                 "already_configured": "Den här laddpunkten har redan lagts till.",
                 "cannot_connect": "Kunde inte ansluta till CloudCharge API.",
                 "no_chargepoints_available": "Inga laddpunkter tillgängliga att lägga till. Alla laddpunkter kanske redan är tillagda."
+            }
+        },
+        "balancer": {
+            "initiate_flow": {
+                "user": "Lägg till balancer"
+            },
+            "entry_type": "Balancer",
+            "step": {
+                "user": {
+                    "title": "Söker efter balancers",
+                    "description": "Lyssnar efter balancer-utsändningar..."
+                },
+                "select": {
+                    "title": "Lägg till balancer",
+                    "description": "{count} balancer(s) hittades som inte redan lagts till. Välj en, eller skriv in serienumret för en balancer som inte hittades.",
+                    "data": {
+                        "serial": "Balancer"
+                    }
+                }
+            },
+            "progress": {
+                "balancer_scan": "Lyssnar efter balancer-utsändningar..."
+            },
+            "error": {
+                "no_balancers_selected": "Välj eller ange ett serienummer",
+                "already_configured": "Den här balancern har redan lagts till."
+            },
+            "abort": {
+                "already_configured": "Den här balancern har redan lagts till.",
+                "cannot_listen": "Kunde inte lyssna efter utsändningar på postens gränssnitt."
             }
         }
     },
@@ -242,6 +305,18 @@
             },
             "defa_power_paused_until": {
                 "name": "Pausad tills"
+            },
+            "defa_power_current_l1": {
+                "name": "Ström L1"
+            },
+            "defa_power_current_l2": {
+                "name": "Ström L2"
+            },
+            "defa_power_current_l3": {
+                "name": "Ström L3"
+            },
+            "defa_power_last_boot": {
+                "name": "Senaste start"
             }
         },
         "binary_sensor": {

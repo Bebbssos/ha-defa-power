@@ -1,5 +1,6 @@
 """DEFA Power integration for Home Assistant."""
 
+import asyncio
 import logging
 from types import MappingProxyType
 from typing import cast
@@ -9,11 +10,15 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv, device_registry as dr
 
+from .balancer.listener import BalancerListener
 from .cloudcharge_api.client import CloudChargeAPIClient
 from .cloudcharge_api.exceptions import CloudChargeAPIError
 from .cloudcharge_api.models import ChargePoint
 from .const import (
     API_BASE_URL,
+    BALANCER_FIRST_BROADCAST_TIMEOUT,
+    CONF_BALANCER_SERIAL,
+    CONF_INTERFACE_IP,
     CONF_REQUEST_INTERVAL_MS,
     CONFIG_ENTRY_VERSION,
     DEFAULT_REQUEST_INTERVAL_MS,
@@ -22,19 +27,24 @@ from .const import (
     INITIAL_CONNECTOR_IDS,
 )
 from .coordinator import (
+    BalancerCoordinator,
     CloudChargeActiveScheduleCoordinator,
     CloudChargeChargepointCoordinator,
     CloudChargeEcoModeCoordinator,
     CloudChargeManualSchedulesCoordinator,
     CloudChargeOperationalDataCoordinator,
 )
-from .devices import ChargePointDevice, ConnectorDevice
+from .devices import BalancerDevice, ChargePointDevice, ConnectorDevice
 from .models import (
+    BalancerRuntimeData,
+    DefaPowerBalancerConfigEntry,
     DefaPowerConfigEntry,
     RuntimeData,
+    RuntimeDataBalancer,
     RuntimeDataChargePoint,
     RuntimeDataConnector,
     RuntimeDataConnectorCapabilities,
+    is_balancer_entry,
 )
 from .services import async_setup_services
 
@@ -43,10 +53,14 @@ _LOGGER = logging.getLogger(__name__)
 CONFIG_SCHEMA = cv.config_entry_only_config_schema("defa_power")
 
 PLATFORMS = ["binary_sensor", "sensor", "button", "number", "select", "switch"]
+BALANCER_PLATFORMS = ["sensor"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) -> bool:
     """Set up DEFA Power from a config entry."""
+    if is_balancer_entry(entry):
+        return await _async_setup_balancer_entry(hass, entry)
+
     _LOGGER.info("Setting up DEFA Power from config entry")
 
     interval_ms = entry.options.get(
@@ -208,6 +222,110 @@ async def async_setup_entry(hass: HomeAssistant, entry: DefaPowerConfigEntry) ->
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
+
+
+async def _async_setup_balancer_entry(
+    hass: HomeAssistant, entry: DefaPowerBalancerConfigEntry
+) -> bool:
+    """Set up a balancer entry: one multicast listener serving every balancer subentry."""
+    interface_ip = entry.data[CONF_INTERFACE_IP]
+    _LOGGER.info("Setting up DEFA Balancer listener on %s", interface_ip)
+
+    listener = BalancerListener(hass, interface_ip)
+    try:
+        await listener.async_start()
+    except OSError as err:
+        raise ConfigEntryNotReady(
+            f"Could not listen for balancers on {interface_ip}: {err}"
+        ) from err
+    entry.async_on_unload(listener.async_stop)
+
+    device_registry = dr.async_get(hass)
+    balancers: dict[str, RuntimeDataBalancer] = {}
+    data: BalancerRuntimeData = {"listener": listener, "balancers": balancers}
+    entry.runtime_data = data
+
+    for subentry in entry.subentries.values():
+        if subentry.subentry_type != "balancer":
+            continue
+        serial = subentry.data[CONF_BALANCER_SERIAL]
+        coordinator = BalancerCoordinator(serial, hass, listener)
+        entry.async_on_unload(coordinator.async_shutdown_listener)
+        balancers[serial] = {
+            "coordinator": coordinator,
+            "device": BalancerDevice(serial),
+            "subentry_id": subentry.subentry_id,
+        }
+
+    # The balancer broadcasts continuously, so normally every one has reported
+    # within a moment. A silent balancer is not an error at setup: its entities
+    # are created anyway and go unavailable through the coordinator watchdog.
+    try:
+        async with asyncio.timeout(BALANCER_FIRST_BROADCAST_TIMEOUT):
+            await asyncio.gather(
+                *(
+                    val["coordinator"].first_broadcast.wait()
+                    for val in balancers.values()
+                )
+            )
+    except TimeoutError:
+        _LOGGER.warning(
+            "No broadcast received on %s from balancer(s) %s within %s seconds",
+            interface_ip,
+            ", ".join(
+                serial
+                for serial, val in balancers.items()
+                if not val["coordinator"].first_broadcast.is_set()
+            ),
+            BALANCER_FIRST_BROADCAST_TIMEOUT,
+        )
+
+    for serial, val in balancers.items():
+        coordinator = val["coordinator"]
+        firmware_version = (coordinator.data or {}).get("firmware_version")
+        val["device"] = BalancerDevice(serial, firmware_version)
+        device_entry = device_registry.async_get_or_create(
+            config_entry_id=entry.entry_id,
+            config_subentry_id=val["subentry_id"],
+            **val["device"].get_device_info(),
+        )
+        entry.async_on_unload(
+            coordinator.async_add_listener(
+                _balancer_firmware_updater(hass, coordinator, device_entry.id)
+            )
+        )
+
+    entry.async_on_unload(entry.add_update_listener(update_listener))
+
+    await hass.config_entries.async_forward_entry_setups(entry, BALANCER_PLATFORMS)
+    return True
+
+
+def _balancer_firmware_updater(
+    hass: HomeAssistant, coordinator: BalancerCoordinator, device_id: str
+):
+    """Return a coordinator listener keeping the device's firmware version current.
+
+    The firmware version is only known once the balancer has been heard, which
+    may be after the device was registered, and it changes when the balancer is
+    updated.
+    """
+    device_registry = dr.async_get(hass)
+
+    def _update() -> None:
+        if coordinator.data is None:
+            return
+        firmware_version = coordinator.data["firmware_version"]
+        device = device_registry.async_get(device_id)
+        if (
+            firmware_version is None
+            or device is None
+            or device.sw_version == firmware_version
+        ):
+            return
+        device_registry.async_update_device(device_id, sw_version=firmware_version)
+
+    return _update
 
 
 def _chargepoint_subentry(cp_id: str, cp_data: ChargePoint) -> ConfigSubentry:
@@ -409,6 +527,13 @@ def _async_assign_devices_to_subentries(
 
 async def async_unload_entry(hass: HomeAssistant, entry) -> bool:
     """Unload a config entry."""
+    if is_balancer_entry(entry):
+        _LOGGER.info("Unloading DEFA Balancer config entry")
+        # The listener is stopped by the entry's on_unload callbacks
+        return await hass.config_entries.async_unload_platforms(
+            entry, BALANCER_PLATFORMS
+        )
+
     _LOGGER.info("Unloading DEFA Power config entry")
     await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     await entry.runtime_data["client"].async_close()
@@ -426,6 +551,11 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) ->
     if config_entry.version > CONFIG_ENTRY_VERSION:
         # This means the user has downgraded from a future version
         return False
+
+    # Balancer entries first appeared with entry version 3 and carry no
+    # CloudCharge data, so the migrations below must never touch them
+    if is_balancer_entry(config_entry):
+        return True
 
     if config_entry.version == 1:
         # Credentials moved into their own dict

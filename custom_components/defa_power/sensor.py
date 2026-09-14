@@ -2,9 +2,10 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import timedelta
 from enum import Enum
 import logging
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, cast
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -12,20 +13,28 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import UnitOfEnergy, UnitOfPower
+from homeassistant.const import (
+    EntityCategory,
+    UnitOfElectricCurrent,
+    UnitOfEnergy,
+    UnitOfPower,
+)
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 import homeassistant.util.dt as dt_util
 
 from . import DefaPowerConfigEntry
+from .balancer.protocol import BalancerData
 from .cloudcharge_api.models import (
     ActiveScheduleSettings,
     ChargePoint,
     Connector,
     OperationalData,
 )
-from .devices import ChargePointDevice, ConnectorDevice
+from .coordinator import BalancerCoordinator
+from .devices import BalancerDevice, ChargePointDevice, ConnectorDevice
+from .models import DefaPowerBalancerConfigEntry, is_balancer_entry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -235,10 +244,70 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: tuple[DefaPowerConnectorSensorDescription, ..
 )
 
 
+def get_balancer_last_boot(data: BalancerData):
+    """Derive when the balancer booted from its uptime.
+
+    Rounded to whole minutes so the state does not change with every broadcast.
+    The balancer reports uptime as a 32-bit millisecond counter, so this wraps
+    after about 49 days.
+    """
+    last_boot = dt_util.utcnow() - timedelta(milliseconds=data["uptime_ms"])
+    return last_boot.replace(second=0, microsecond=0)
+
+
+DEFA_POWER_BALANCER_SENSOR_TYPES: tuple[DefaPowerSensorDescription, ...] = (
+    DefaPowerSensorDescription[BalancerData](
+        key="current_l1",
+        icon="mdi:current-ac",
+        round_digits=1,
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.CURRENT,
+        value_fn=lambda data: data["current_l1"],
+    ),
+    DefaPowerSensorDescription[BalancerData](
+        key="current_l2",
+        icon="mdi:current-ac",
+        round_digits=1,
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.CURRENT,
+        value_fn=lambda data: data["current_l2"],
+    ),
+    DefaPowerSensorDescription[BalancerData](
+        key="current_l3",
+        icon="mdi:current-ac",
+        round_digits=1,
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.CURRENT,
+        value_fn=lambda data: data["current_l3"],
+    ),
+    DefaPowerSensorDescription[BalancerData](
+        key="firmware_version",
+        icon="mdi:information-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda data: data["firmware_version"],
+    ),
+    DefaPowerSensorDescription[BalancerData](
+        key="last_boot",
+        icon="mdi:clock-start",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=get_balancer_last_boot,
+    ),
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: DefaPowerConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback
 ):
     """Set up the sensor platform."""
+    if is_balancer_entry(entry):
+        _async_setup_balancer_entities(
+            cast("DefaPowerBalancerConfigEntry", entry), async_add_entities
+        )
+        return
 
     instance_id = entry.data.get("instance_id") or "default"
 
@@ -357,6 +426,28 @@ async def async_setup_entry(
 
         if entities:
             async_add_entities(entities, update_before_add=True, config_subentry_id=subentry_id)
+
+
+@callback
+def _async_setup_balancer_entities(
+    entry: DefaPowerBalancerConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
+) -> None:
+    """Create the sensors of every balancer subentry.
+
+    Unlike the CloudCharge entities nothing is skipped: every field is present
+    in every broadcast, and a balancer that has not been heard yet simply gets
+    its entities unavailable until it is.
+    """
+    for serial, val in entry.runtime_data["balancers"].items():
+        async_add_entities(
+            [
+                DefaBalancerEntity(serial, val["coordinator"], sensor_type, val["device"])
+                for sensor_type in DEFA_POWER_BALANCER_SENSOR_TYPES
+                if sensor_type.value_fn is not None
+            ],
+            config_subentry_id=val["subentry_id"],
+        )
 
 
 class DefaChargePointEntity(CoordinatorEntity, SensorEntity):
@@ -531,3 +622,61 @@ class DefaConnectorEntity(CoordinatorEntity, SensorEntity):
     def options(self) -> list[str] | None:
         """Return the option of the sensor."""
         return self.entity_description.options
+
+
+
+class DefaBalancerEntity(CoordinatorEntity[BalancerCoordinator], SensorEntity):
+    """Sensor entity for a DEFA Balancer."""
+
+    state_val = None
+    _attr_has_entity_name = True
+    entity_description: DefaPowerSensorDescription
+
+    def __init__(
+        self,
+        serial: str,
+        coordinator: BalancerCoordinator,
+        description: DefaPowerSensorDescription,
+        device: BalancerDevice,
+    ) -> None:
+        """Initialize the entity."""
+        super().__init__(coordinator, description.key)
+        self.coordinator = coordinator
+        self.entity_description = description
+        self._attr_unique_id = f"balancer_{serial}_{description.key}"
+        self._attr_translation_key = f"defa_power_{description.key}"
+        self._attr_icon = description.icon
+
+        if description.round_digits is not None:
+            self._attr_suggested_display_precision = description.round_digits
+
+        self.serial = serial
+        self._attr_device_info = device.get_device_info()
+        self._set_state()
+
+    @property
+    def available(self):
+        """Return True if entity is available."""
+        return self.coordinator.last_update_success and self.coordinator.data is not None
+
+    def _set_state(self):
+        """Update the state from coordinator. Return True if the state has changed."""
+        if self.coordinator.data is None or self.entity_description.value_fn is None:
+            return False
+
+        new_state = self.entity_description.value_fn(self.coordinator.data)
+        if new_state != self.state_val:
+            self.state_val = new_state
+            return True
+
+        return False
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        if self._set_state():
+            self.async_write_ha_state()
+
+    @property
+    def native_value(self):
+        """Return the value of the entity."""
+        return self.state_val

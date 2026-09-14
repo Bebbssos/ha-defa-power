@@ -4,15 +4,18 @@ from typing import TypedDict
 
 from homeassistant.config_entries import ConfigEntry
 
+from .balancer.listener import BalancerListener
 from .cloudcharge_api.client import CloudChargeAPIClient
+from .const import CONF_ENTRY_TYPE, ENTRY_TYPE_BALANCER
 from .coordinator import (
+    BalancerCoordinator,
     CloudChargeActiveScheduleCoordinator,
     CloudChargeChargepointCoordinator,
     CloudChargeEcoModeCoordinator,
     CloudChargeManualSchedulesCoordinator,
     CloudChargeOperationalDataCoordinator,
 )
-from .devices import ChargePointDevice, ConnectorDevice
+from .devices import BalancerDevice, ChargePointDevice, ConnectorDevice
 
 
 class RuntimeDataChargePoint(TypedDict):
@@ -57,4 +60,25 @@ class RuntimeData(TypedDict):
     client: CloudChargeAPIClient
 
 
+class RuntimeDataBalancer(TypedDict):
+    """Runtime data for a balancer."""
+
+    device: BalancerDevice
+    coordinator: BalancerCoordinator
+    subentry_id: str
+
+
+class BalancerRuntimeData(TypedDict):
+    """Runtime data for a balancer entry (one listening interface)."""
+
+    listener: BalancerListener
+    balancers: dict[str, RuntimeDataBalancer]
+
+
 type DefaPowerConfigEntry = ConfigEntry[RuntimeData]
+type DefaPowerBalancerConfigEntry = ConfigEntry[BalancerRuntimeData]
+
+
+def is_balancer_entry(entry: ConfigEntry) -> bool:
+    """Return whether the entry listens for balancers instead of using CloudCharge."""
+    return entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_BALANCER

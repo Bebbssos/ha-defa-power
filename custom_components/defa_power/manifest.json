@@ -5,7 +5,9 @@
     "@Bebbssos"
   ],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": [
+    "network"
+  ],
   "documentation": "https://github.com/Bebbssos/ha-defa-power",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/Bebbssos/ha-defa-power/issues",
