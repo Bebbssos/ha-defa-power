@@ -13,6 +13,9 @@
     "8123:8123",
     "5678:5678"
   ],
+  // "runArgs": [
+  //   "--network=host"
+  // ],
   "remoteUser": "root",
   "customizations": {
     "vscode": {

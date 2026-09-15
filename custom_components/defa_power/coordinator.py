@@ -22,7 +22,6 @@ from .cloudcharge_api.models import (
     EcoModeConfigurationRequest,
     ManualSchedules,
 )
-from .const import BALANCER_STALE_TIMEOUT
 
 CONF_TOKEN = "token"
 CONF_USER_ID = "userId"
@@ -356,22 +355,29 @@ class BalancerCoordinator(DataUpdateCoordinator[BalancerData]):
     Data is pushed by the multicast listener rather than polled. The update
     interval only serves as a watchdog: `async_set_updated_data` reschedules
     it on every broadcast, so `_async_update_data` runs only when the balancer
-    has been silent for BALANCER_STALE_TIMEOUT, and marks the data stale.
+    has been silent for `stale_timeout` seconds, and marks the data stale.
     """
 
     def __init__(
-        self, serial: str, hass: HomeAssistant, listener: BalancerListener
+        self,
+        serial: str,
+        hass: HomeAssistant,
+        listener: BalancerListener,
+        stale_timeout: int,
     ) -> None:
         """Initialize coordinator."""
         super().__init__(
             hass,
             _LOGGER,
             name=f"DEFA Balancer {serial}",
-            update_interval=timedelta(seconds=BALANCER_STALE_TIMEOUT),
+            # The coordinator aligns refreshes to whole seconds, so one may fire
+            # up to a second early; the extra second keeps the age check true
+            update_interval=timedelta(seconds=stale_timeout + 1),
             always_update=True,
         )
         self.serial = serial
         self.listener = listener
+        self.stale_timeout = stale_timeout
         # Set once the balancer has been heard, so setup can wait for it
         self.first_broadcast = asyncio.Event()
         self._unregister = listener.async_register(serial, self._async_packet_received)
@@ -391,10 +397,10 @@ class BalancerCoordinator(DataUpdateCoordinator[BalancerData]):
                 f"{self.listener.interface_ip}"
             )
         data, received_at = seen
-        if time.monotonic() - received_at > BALANCER_STALE_TIMEOUT:
+        if time.monotonic() - received_at >= self.stale_timeout:
             raise UpdateFailed(
                 f"No broadcast received from balancer {self.serial} for "
-                f"{BALANCER_STALE_TIMEOUT} seconds"
+                f"{self.stale_timeout} seconds"
             )
         return data
 

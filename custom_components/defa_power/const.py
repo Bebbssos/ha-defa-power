@@ -22,9 +22,10 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_CLOUDCHARGE = "cloudcharge"
 ENTRY_TYPE_BALANCER = "balancer"
 
-# Balancer entry data: the local IPv4 address of the interface the balancer
-# multicast is received on, and the serials selected in the config flow
-CONF_INTERFACE_IP = "interface_ip"
+# Balancer entry data: the name of the network interface the balancer multicast
+# is received on (stored by name so a changed IP address does not matter), and
+# the serials selected in the config flow
+CONF_INTERFACE = "interface"
 CONF_BALANCER_SERIAL = "serial"
 
 # The balancer announces itself on the local network with a UDP multicast; no
@@ -35,5 +36,9 @@ BALANCER_MULTICAST_PORT = 57082
 BALANCER_SCAN_TIMEOUT = 10
 # How long entry setup waits for the first broadcast of each balancer
 BALANCER_FIRST_BROADCAST_TIMEOUT = 5
-# Entities go unavailable when no broadcast has been received for this long
-BALANCER_STALE_TIMEOUT = 60
+# Balancer entry option: seconds without a broadcast after which a balancer's
+# entities go unavailable. The balancer broadcasts about twice a second.
+CONF_STALE_TIMEOUT = "stale_timeout"
+DEFAULT_BALANCER_STALE_TIMEOUT = 5
+MIN_BALANCER_STALE_TIMEOUT = 1
+MAX_BALANCER_STALE_TIMEOUT = 3600

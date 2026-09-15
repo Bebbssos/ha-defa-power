@@ -2,12 +2,13 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from enum import Enum
 import logging
 from typing import Any, Generic, TypeVar, cast
 
 from homeassistant.components.sensor import (
+    RestoreSensor,
     SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
@@ -111,6 +112,9 @@ class DefaPowerSensorDescription(Generic[T], SensorEntityDescription):
 
     round_digits: int | None = None
     disabled_by_default: bool = False
+    # For timestamp sensors: a new value closer than this to the current one is
+    # not reported, so a value derived from a slightly noisy source holds still
+    min_change: timedelta | None = None
     options: list[str] | None = None
     value_fn: Callable[[T], Any] | None = None
     create_if_none: bool = False
@@ -244,6 +248,12 @@ DEFA_POWER_CONNECTOR_SENSOR_TYPES: tuple[DefaPowerConnectorSensorDescription, ..
 )
 
 
+# The boot time is computed from the balancer's uptime and the time the packet
+# was handled, which jitters by seconds; without a tolerance it would drift
+# back and forth, especially across a reload
+BALANCER_LAST_BOOT_TOLERANCE = timedelta(minutes=5)
+
+
 def get_balancer_last_boot(data: BalancerData):
     """Derive when the balancer booted from its uptime.
 
@@ -287,6 +297,7 @@ DEFA_POWER_BALANCER_SENSOR_TYPES: tuple[DefaPowerSensorDescription, ...] = (
         key="firmware_version",
         icon="mdi:information-outline",
         entity_category=EntityCategory.DIAGNOSTIC,
+        disabled_by_default=True,
         value_fn=lambda data: data["firmware_version"],
     ),
     DefaPowerSensorDescription[BalancerData](
@@ -294,7 +305,16 @@ DEFA_POWER_BALANCER_SENSOR_TYPES: tuple[DefaPowerSensorDescription, ...] = (
         icon="mdi:clock-start",
         entity_category=EntityCategory.DIAGNOSTIC,
         device_class=SensorDeviceClass.TIMESTAMP,
+        disabled_by_default=True,
+        min_change=BALANCER_LAST_BOOT_TOLERANCE,
         value_fn=get_balancer_last_boot,
+    ),
+    DefaPowerSensorDescription[BalancerData](
+        key="ip_address",
+        icon="mdi:ip-network",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        disabled_by_default=True,
+        value_fn=lambda data: data["ip_address"],
     ),
 )
 
@@ -625,8 +645,12 @@ class DefaConnectorEntity(CoordinatorEntity, SensorEntity):
 
 
 
-class DefaBalancerEntity(CoordinatorEntity[BalancerCoordinator], SensorEntity):
-    """Sensor entity for a DEFA Balancer."""
+class DefaBalancerEntity(CoordinatorEntity[BalancerCoordinator], RestoreSensor):
+    """Sensor entity for a DEFA Balancer.
+
+    Restores its previous state only to hold a value steady across a reload
+    (see `min_change`); every other value comes from the next broadcast.
+    """
 
     state_val = None
     _attr_has_entity_name = True
@@ -647,6 +671,9 @@ class DefaBalancerEntity(CoordinatorEntity[BalancerCoordinator], SensorEntity):
         self._attr_translation_key = f"defa_power_{description.key}"
         self._attr_icon = description.icon
 
+        if description.disabled_by_default:
+            self._attr_entity_registry_enabled_default = False
+
         if description.round_digits is not None:
             self._attr_suggested_display_precision = description.round_digits
 
@@ -654,10 +681,34 @@ class DefaBalancerEntity(CoordinatorEntity[BalancerCoordinator], SensorEntity):
         self._attr_device_info = device.get_device_info()
         self._set_state()
 
+    async def async_added_to_hass(self) -> None:
+        """Keep the value from before a reload when the new one is within tolerance."""
+        await super().async_added_to_hass()
+        if self.entity_description.min_change is None:
+            return
+        last = await self.async_get_last_sensor_data()
+        if last is None or not isinstance(last.native_value, datetime):
+            return
+        if self.state_val is None or not self._changed_enough(last.native_value):
+            self.state_val = last.native_value
+
     @property
     def available(self):
         """Return True if entity is available."""
         return self.coordinator.last_update_success and self.coordinator.data is not None
+
+    def _changed_enough(self, new_state: Any) -> bool:
+        """Return whether a new value differs enough from the current one to report."""
+        if new_state == self.state_val:
+            return False
+        min_change = self.entity_description.min_change
+        if (
+            min_change is not None
+            and isinstance(new_state, datetime)
+            and isinstance(self.state_val, datetime)
+        ):
+            return abs(new_state - self.state_val) >= min_change
+        return True
 
     def _set_state(self):
         """Update the state from coordinator. Return True if the state has changed."""
@@ -665,7 +716,7 @@ class DefaBalancerEntity(CoordinatorEntity[BalancerCoordinator], SensorEntity):
             return False
 
         new_state = self.entity_description.value_fn(self.coordinator.data)
-        if new_state != self.state_val:
+        if self._changed_enough(new_state):
             self.state_val = new_state
             return True
 

@@ -9,7 +9,7 @@ from homeassistant.components.diagnostics.util import async_redact_data
 from homeassistant.core import HomeAssistant
 
 from .balancer.protocol import DEVICE_ID_LENGTH
-from .const import CONF_INTERFACE_IP
+from .const import CONF_INTERFACE
 from .models import (
     DefaPowerBalancerConfigEntry,
     DefaPowerConfigEntry,
@@ -61,7 +61,8 @@ def _get_balancer_diagnostics(
     """Return diagnostics for a balancer entry."""
     listener = entry.runtime_data["listener"]
     data: dict[str, Any] = {
-        "interface_ip": entry.data[CONF_INTERFACE_IP],
+        "interface": entry.data.get(CONF_INTERFACE),
+        "interface_ip": listener.interface_ip,
         "balancers": {},
         # Every balancer heard on the interface, including ones not added
         "heard_serials": [
@@ -73,6 +74,7 @@ def _get_balancer_diagnostics(
         coordinator = val["coordinator"]
         last = coordinator.data
         d: dict[str, Any] = {
+            "stale_timeout": coordinator.stale_timeout,
             "last_update_success": coordinator.last_update_success,
             "last_broadcast": None,
         }

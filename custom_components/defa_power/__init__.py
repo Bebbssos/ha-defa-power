@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv, device_registry as dr
 
+from .balancer.interface import InterfaceUnavailableError, async_resolve_entry_interface
 from .balancer.listener import BalancerListener
 from .cloudcharge_api.client import CloudChargeAPIClient
 from .cloudcharge_api.exceptions import CloudChargeAPIError
@@ -18,9 +19,10 @@ from .const import (
     API_BASE_URL,
     BALANCER_FIRST_BROADCAST_TIMEOUT,
     CONF_BALANCER_SERIAL,
-    CONF_INTERFACE_IP,
     CONF_REQUEST_INTERVAL_MS,
+    CONF_STALE_TIMEOUT,
     CONFIG_ENTRY_VERSION,
+    DEFAULT_BALANCER_STALE_TIMEOUT,
     DEFAULT_REQUEST_INTERVAL_MS,
     DOMAIN,
     INITIAL_CHARGEPOINT_IDS,
@@ -228,15 +230,22 @@ async def _async_setup_balancer_entry(
     hass: HomeAssistant, entry: DefaPowerBalancerConfigEntry
 ) -> bool:
     """Set up a balancer entry: one multicast listener serving every balancer subentry."""
-    interface_ip = entry.data[CONF_INTERFACE_IP]
-    _LOGGER.info("Setting up DEFA Balancer listener on %s", interface_ip)
+    # The interface is stored by name and resolved to whatever address it has
+    # right now, so Home Assistant getting a new address changes nothing
+    try:
+        interface, interface_ip = await async_resolve_entry_interface(hass, entry)
+    except InterfaceUnavailableError as err:
+        raise ConfigEntryNotReady(str(err)) from err
+    _LOGGER.info(
+        "Setting up DEFA Balancer listener on %s (%s)", interface, interface_ip
+    )
 
     listener = BalancerListener(hass, interface_ip)
     try:
         await listener.async_start()
     except OSError as err:
         raise ConfigEntryNotReady(
-            f"Could not listen for balancers on {interface_ip}: {err}"
+            f"Could not listen for balancers on {interface} ({interface_ip}): {err}"
         ) from err
     entry.async_on_unload(listener.async_stop)
 
@@ -245,11 +254,14 @@ async def _async_setup_balancer_entry(
     data: BalancerRuntimeData = {"listener": listener, "balancers": balancers}
     entry.runtime_data = data
 
+    stale_timeout = entry.options.get(
+        CONF_STALE_TIMEOUT, DEFAULT_BALANCER_STALE_TIMEOUT
+    )
     for subentry in entry.subentries.values():
         if subentry.subentry_type != "balancer":
             continue
         serial = subentry.data[CONF_BALANCER_SERIAL]
-        coordinator = BalancerCoordinator(serial, hass, listener)
+        coordinator = BalancerCoordinator(serial, hass, listener, stale_timeout)
         entry.async_on_unload(coordinator.async_shutdown_listener)
         balancers[serial] = {
             "coordinator": coordinator,
@@ -271,7 +283,7 @@ async def _async_setup_balancer_entry(
     except TimeoutError:
         _LOGGER.warning(
             "No broadcast received on %s from balancer(s) %s within %s seconds",
-            interface_ip,
+            interface,
             ", ".join(
                 serial
                 for serial, val in balancers.items()

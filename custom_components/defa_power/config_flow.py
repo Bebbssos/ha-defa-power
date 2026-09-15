@@ -3,7 +3,6 @@
 import asyncio
 from collections.abc import AsyncGenerator, Mapping
 from contextlib import asynccontextmanager
-import ipaddress
 import logging
 import re
 from typing import Any
@@ -19,6 +18,7 @@ from homeassistant.config_entries import (
     ConfigSubentryFlow,
 )
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.selector import (
     NumberSelector,
@@ -30,6 +30,12 @@ from homeassistant.helpers.selector import (
     SelectSelectorMode,
 )
 
+from .balancer.interface import (
+    InterfaceUnavailableError,
+    async_get_interfaces,
+    async_resolve_entry_interface,
+    interface_for_ip,
+)
 from .balancer.listener import async_scan_balancers
 from .balancer.protocol import BalancerData
 from .cloudcharge_api.client import CloudChargeAPIClient
@@ -47,18 +53,22 @@ from .const import (
     BALANCER_SCAN_TIMEOUT,
     CONF_BALANCER_SERIAL,
     CONF_ENTRY_TYPE,
-    CONF_INTERFACE_IP,
+    CONF_INTERFACE,
     CONF_REQUEST_INTERVAL_MS,
+    CONF_STALE_TIMEOUT,
     CONFIG_ENTRY_MINOR_VERSION,
     CONFIG_ENTRY_VERSION,
+    DEFAULT_BALANCER_STALE_TIMEOUT,
     DEFAULT_REQUEST_INTERVAL_MS,
     DOMAIN,
     ENTRY_TYPE_BALANCER,
     INITIAL_CHARGEPOINT_IDS,
     INITIAL_CONNECTOR_IDS,
+    MAX_BALANCER_STALE_TIMEOUT,
+    MIN_BALANCER_STALE_TIMEOUT,
     NAME,
 )
-from .models import is_balancer_entry
+from .models import balancer_entry_title, is_balancer_entry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -147,47 +157,58 @@ def normalize_balancer_serial(serial: str) -> str:
     return serial
 
 
-def is_ipv4_address(value: str) -> bool:
-    """Return whether the value is a plain IPv4 address."""
-    try:
-        return ipaddress.ip_address(value).version == 4
-    except ValueError:
-        return False
-
-
-async def async_interface_ip_schema(
-    hass: HomeAssistant, current: str | None = None
+async def async_interface_schema(
+    hass: HomeAssistant, interfaces: dict[str, list[str]], current: str | None = None
 ) -> vol.Schema:
     """Build the schema asking for the interface to receive balancer multicast on.
 
-    Offers the host's own IPv4 addresses, defaulting to the one Home Assistant
-    uses for multicast, while still allowing any address to be typed.
+    Lists the host's interfaces with their current addresses, preselecting the
+    current one or else the one Home Assistant itself uses for multicast.
     """
-    options = [
-        SelectOptionDict(value=str(ip), label=str(ip))
-        for ip in await network.async_get_enabled_source_ips(hass)
-        if ip.version == 4 and not ip.is_loopback
-    ]
-    default = current or await network.async_get_source_ip(hass)
-    if default and all(option["value"] != default for option in options):
-        options.insert(0, SelectOptionDict(value=default, label=default))
+    default = current
+    if default not in interfaces:
+        try:
+            default = interface_for_ip(
+                interfaces, await network.async_get_source_ip(hass)
+            )
+        except HomeAssistantError:
+            default = None
 
     field = (
-        vol.Required(CONF_INTERFACE_IP, default=default)
+        vol.Required(CONF_INTERFACE, default=default)
         if default
-        else vol.Required(CONF_INTERFACE_IP)
+        else vol.Required(CONF_INTERFACE)
     )
     return vol.Schema(
         {
             field: SelectSelector(
                 SelectSelectorConfig(
-                    options=options,
-                    custom_value=True,
+                    options=[
+                        SelectOptionDict(
+                            value=name, label=f"{name} ({', '.join(addresses)})"
+                        )
+                        for name, addresses in interfaces.items()
+                    ],
                     mode=SelectSelectorMode.DROPDOWN,
                 )
             )
         }
     )
+
+
+def stale_timeout_schema(current: int) -> dict[vol.Marker, Any]:
+    """Return the schema field for how long a balancer may be silent."""
+    return {
+        vol.Required(CONF_STALE_TIMEOUT, default=current): NumberSelector(
+            NumberSelectorConfig(
+                min=MIN_BALANCER_STALE_TIMEOUT,
+                max=MAX_BALANCER_STALE_TIMEOUT,
+                step=1,
+                unit_of_measurement="s",
+                mode=NumberSelectorMode.BOX,
+            )
+        )
+    }
 
 
 def balancer_select_options(found: dict[str, BalancerData]) -> list[SelectOptionDict]:
@@ -196,7 +217,8 @@ def balancer_select_options(found: dict[str, BalancerData]) -> list[SelectOption
         SelectOptionDict(
             value=serial,
             label=(
-                f"{serial} (firmware {data['firmware_version'] or '?'}, "
+                f"{serial} ({data['ip_address']}, "
+                f"firmware {data['firmware_version'] or '?'}, "
                 f"{data['current_l1']:.1f} / {data['current_l2']:.1f} / "
                 f"{data['current_l3']:.1f} A)"
             ),
@@ -244,6 +266,7 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     # share one client so its cookie jar keeps them on that server, otherwise
     # /login fails with "No loginAttempts found".
     client: CloudChargeAPIClient | None = None
+    _balancer_interface: str | None = None
     _balancer_interface_ip: str | None = None
     _balancer_scan_task: asyncio.Task[dict[str, BalancerData]] | None = None
     _balancer_scan_result: dict[str, BalancerData] | None = None
@@ -292,33 +315,53 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # input that started it; treating it as a new submit would scan again
             user_input = None
 
+        interfaces = await async_get_interfaces(self.hass)
+        if not interfaces:
+            return self.async_abort(reason="no_interfaces")
+
         if user_input is not None:
-            interface_ip = user_input[CONF_INTERFACE_IP].strip()
-            if not is_ipv4_address(interface_ip):
-                errors["base"] = "invalid_ip"
+            interface = user_input[CONF_INTERFACE]
+            if interface not in interfaces:
+                errors["base"] = "unknown_interface"
             elif self.source == config_entries.SOURCE_RECONFIGURE:
+                entry = self._get_reconfigure_entry()
+                if any(
+                    other.entry_id != entry.entry_id
+                    and is_balancer_entry(other)
+                    and other.data.get(CONF_INTERFACE) == interface
+                    for other in self._async_current_entries()
+                ):
+                    return self.async_abort(reason="already_configured")
                 return self.async_update_reload_and_abort(
-                    self._get_reconfigure_entry(),
-                    data_updates={CONF_INTERFACE_IP: interface_ip},
+                    entry,
+                    data={
+                        CONF_ENTRY_TYPE: ENTRY_TYPE_BALANCER,
+                        CONF_INTERFACE: interface,
+                    },
+                    # A title the user chose themselves is kept
+                    title=(
+                        balancer_entry_title(interface)
+                        if entry.title
+                        == balancer_entry_title(entry.data[CONF_INTERFACE])
+                        else entry.title
+                    ),
                     reason="reconfigure_successful",
                 )
             else:
                 self._async_abort_entries_match(
-                    {
-                        CONF_ENTRY_TYPE: ENTRY_TYPE_BALANCER,
-                        CONF_INTERFACE_IP: interface_ip,
-                    }
+                    {CONF_ENTRY_TYPE: ENTRY_TYPE_BALANCER, CONF_INTERFACE: interface}
                 )
-                self._balancer_interface_ip = interface_ip
+                self._balancer_interface = interface
+                self._balancer_interface_ip = interfaces[interface][0]
                 return await self.async_step_balancer_scan()
 
-        current = self._balancer_interface_ip
+        current = self._balancer_interface
         if current is None and self.source == config_entries.SOURCE_RECONFIGURE:
-            current = self._get_reconfigure_entry().data.get(CONF_INTERFACE_IP)
+            current = self._get_reconfigure_entry().data[CONF_INTERFACE]
 
         return self.async_show_form(
             step_id="balancer",
-            data_schema=await async_interface_ip_schema(self.hass, current),
+            data_schema=await async_interface_schema(self.hass, interfaces, current),
             errors=errors,
         )
 
@@ -345,7 +388,8 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._balancer_scan_result = task.result()
         except OSError as err:
             _LOGGER.error(
-                "Could not listen for balancers on %s: %s",
+                "Could not listen for balancers on %s (%s): %s",
+                self._balancer_interface,
                 self._balancer_interface_ip,
                 err,
             )
@@ -357,7 +401,7 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Pick the balancers to add, from the scan or typed manually."""
-        assert self._balancer_interface_ip is not None
+        assert self._balancer_interface is not None
         found = self._balancer_scan_result or {}
         errors: dict[str, str] = {}
 
@@ -375,10 +419,10 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "no_balancers_selected"
             else:
                 return self.async_create_entry(
-                    title=f"DEFA Balancer ({self._balancer_interface_ip})",
+                    title=balancer_entry_title(self._balancer_interface),
                     data={
                         CONF_ENTRY_TYPE: ENTRY_TYPE_BALANCER,
-                        CONF_INTERFACE_IP: self._balancer_interface_ip,
+                        CONF_INTERFACE: self._balancer_interface,
                     },
                     subentries=[
                         ConfigSubentryData(
@@ -686,12 +730,17 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def async_get_supported_subentry_types(
         cls, config_entry: config_entries.ConfigEntry
     ) -> dict[str, type[ConfigSubentryFlow]]:
-        """Return subentry types supported by this integration."""
-        if is_balancer_entry(config_entry):
-            return {"balancer": BalancerSubentryFlowHandler}
+        """Return subentry types supported by this integration.
+
+        Every type is offered for every entry: the frontend lets the user pick
+        any entry of the integration for a subentry type, and refuses to open
+        the flow with an unhelpful error when that entry does not support it.
+        The flows instead abort with a message when the entry is the wrong kind.
+        """
         return {
             "connector": ConnectorSubentryFlowHandler,
             "chargepoint": ChargepointSubentryFlowHandler,
+            "balancer": BalancerSubentryFlowHandler,
         }
 
     @classmethod
@@ -699,15 +748,17 @@ class DefaPowerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def async_supports_options_flow(
         cls, config_entry: config_entries.ConfigEntry
     ) -> bool:
-        """Return whether the entry has options; only CloudCharge entries do."""
-        return not is_balancer_entry(config_entry)
+        """Return whether the entry has options; both kinds of entry do."""
+        return True
 
     @staticmethod
     @core.callback
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,
     ) -> config_entries.OptionsFlow:
-        """Create the options flow."""
+        """Create the options flow for the kind of entry."""
+        if is_balancer_entry(config_entry):
+            return BalancerOptionsFlowHandler()
         return DefaPowerOptionsFlowHandler(config_entry)
 
 
@@ -722,6 +773,8 @@ class ConnectorSubentryFlowHandler(ConfigSubentryFlow):
     ) -> config_entries.SubentryFlowResult:
         """Handle the user step."""
         entry = self._get_entry()
+        if is_balancer_entry(entry):
+            return self.async_abort(reason="wrong_entry_type")
 
         if self._options is None:
             try:
@@ -804,6 +857,8 @@ class ChargepointSubentryFlowHandler(ConfigSubentryFlow):
     ) -> config_entries.SubentryFlowResult:
         """Handle the user step."""
         entry = self._get_entry()
+        if is_balancer_entry(entry):
+            return self.async_abort(reason="wrong_entry_type")
 
         if self._options is None:
             try:
@@ -892,11 +947,16 @@ class BalancerSubentryFlowHandler(ConfigSubentryFlow):
     ) -> config_entries.SubentryFlowResult:
         """Listen for balancers on the entry's interface."""
         entry = self._get_entry()
+        if not is_balancer_entry(entry):
+            return self.async_abort(reason="wrong_entry_type")
         if self._scan_task is None:
+            try:
+                _, interface_ip = await async_resolve_entry_interface(self.hass, entry)
+            except InterfaceUnavailableError as err:
+                _LOGGER.error("Could not scan for balancers: %s", err)
+                return self.async_abort(reason="cannot_listen")
             self._scan_task = self.hass.async_create_task(
-                async_scan_balancers(
-                    self.hass, entry.data[CONF_INTERFACE_IP], BALANCER_SCAN_TIMEOUT
-                )
+                async_scan_balancers(self.hass, interface_ip, BALANCER_SCAN_TIMEOUT)
             )
         if not self._scan_task.done():
             return self.async_show_progress(
@@ -911,7 +971,7 @@ class BalancerSubentryFlowHandler(ConfigSubentryFlow):
         except OSError as err:
             _LOGGER.error(
                 "Could not listen for balancers on %s: %s",
-                entry.data[CONF_INTERFACE_IP],
+                entry.data.get(CONF_INTERFACE),
                 err,
             )
             return self.async_show_progress_done(next_step_id="cannot_listen")
@@ -968,6 +1028,35 @@ class BalancerSubentryFlowHandler(ConfigSubentryFlow):
             ),
             errors=errors,
             description_placeholders={"count": str(len(found))},
+        )
+
+
+class BalancerOptionsFlowHandler(config_entries.OptionsFlow):
+    """Options of a balancer entry, shared by every balancer on its interface."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Start at the balancer step; `init` is shared with the CloudCharge options."""
+        return await self.async_step_balancer(user_input)
+
+    async def async_step_balancer(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Set how long a balancer may be silent before it is unavailable."""
+        if user_input is not None:
+            return self.async_create_entry(
+                data={CONF_STALE_TIMEOUT: int(user_input[CONF_STALE_TIMEOUT])}
+            )
+        return self.async_show_form(
+            step_id="balancer",
+            data_schema=vol.Schema(
+                stale_timeout_schema(
+                    self.config_entry.options.get(
+                        CONF_STALE_TIMEOUT, DEFAULT_BALANCER_STALE_TIMEOUT
+                    )
+                )
+            ),
         )
 
 

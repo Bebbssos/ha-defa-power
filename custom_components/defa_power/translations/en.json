@@ -11,9 +11,9 @@
       },
       "balancer": {
         "title": "Listen for balancers",
-        "description": "The balancer announces its readings with a multicast on the local network. Pick the address of the Home Assistant network interface that is on the same network as the balancer.",
+        "description": "The balancer announces its readings with a multicast on the local network. Pick the Home Assistant network interface that is on the same network as the balancer. The interface is remembered by name, so its IP address may change.",
         "data": {
-          "interface_ip": "Interface IP address"
+          "interface": "Network interface"
         }
       },
       "balancer_scan": {
@@ -74,7 +74,8 @@
       "existing_entry_not_found": "Existing entry not found.",
       "reauth_successful": "Re-authentication successful",
       "reconfigure_successful": "Re-configuration successful",
-      "already_configured": "Balancers on this interface are already set up. Add more from the existing entry instead."
+      "already_configured": "Balancers on this interface are already set up. Add more from the existing entry instead.",
+      "no_interfaces": "Home Assistant has no network interface with an IPv4 address."
     },
     "error": {
       "phonenumber_request_error": "Login request error",
@@ -87,8 +88,8 @@
       "manual_entry_request_error": "Request error",
       "manual_entry_auth_error": "Invalid user-id or token",
       "unknown": "Unknown error occurred",
-      "invalid_ip": "Enter a valid IPv4 address",
-      "cannot_listen": "Could not listen for broadcasts on this address. Check that it is an address of a Home Assistant network interface.",
+      "unknown_interface": "Pick one of the listed interfaces",
+      "cannot_listen": "Could not listen for broadcasts on this interface.",
       "no_balancers_selected": "Select or enter at least one serial"
     },
     "progress": {
@@ -113,7 +114,8 @@
       "abort": {
         "already_configured": "This connector has already been added.",
         "cannot_connect": "Could not connect to the CloudCharge API.",
-        "no_connectors_available": "No connectors available to add. All connectors may already be added."
+        "no_connectors_available": "No connectors available to add. All connectors may already be added.",
+        "wrong_entry_type": "Connectors belong to a CloudCharge account, but this is a DEFA Balancer entry. Pick the account entry instead."
       }
     },
     "chargepoint": {
@@ -133,7 +135,8 @@
       "abort": {
         "already_configured": "This chargepoint has already been added.",
         "cannot_connect": "Could not connect to the CloudCharge API.",
-        "no_chargepoints_available": "No chargepoints available to add. All chargepoints may already be added."
+        "no_chargepoints_available": "No chargepoints available to add. All chargepoints may already be added.",
+        "wrong_entry_type": "Chargepoints belong to a CloudCharge account, but this is a DEFA Balancer entry. Pick the account entry instead."
       }
     },
     "balancer": {
@@ -163,7 +166,8 @@
       },
       "abort": {
         "already_configured": "This balancer has already been added.",
-        "cannot_listen": "Could not listen for broadcasts on the interface of this entry."
+        "cannot_listen": "Could not listen for broadcasts on the interface of this entry. Check that it still exists, or reconfigure the entry.",
+        "wrong_entry_type": "Balancers belong to a DEFA Balancer entry, but this is a CloudCharge account entry. Pick the balancer entry instead."
       }
     }
   },
@@ -173,6 +177,15 @@
         "title": "Select action",
         "data": {
           "select_step": "Select action"
+        }
+      },
+      "balancer": {
+        "title": "Balancer settings",
+        "data": {
+          "stale_timeout": "Unavailable after"
+        },
+        "data_description": {
+          "stale_timeout": "Seconds without a broadcast before the balancer's entities become unavailable. The balancer normally broadcasts twice a second."
         }
       },
       "show_token": {
@@ -317,6 +330,9 @@
       },
       "defa_power_last_boot": {
         "name": "Last boot"
+      },
+      "defa_power_ip_address": {
+        "name": "IP address"
       }
     },
     "binary_sensor": {

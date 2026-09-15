@@ -11,6 +11,8 @@ Layout of a broadcast (all integers little endian):
     26..29  phase 3 current in mA, u24
     29..33  unknown
     33..    firmware version, NUL terminated ASCII, at most 20 bytes
+
+The address the packet was sent from is recorded alongside the decoded fields.
 """
 
 from typing import TypedDict
@@ -32,6 +34,8 @@ class BalancerData(TypedDict):
     current_l1: float
     current_l2: float
     current_l3: float
+    # Source address of the broadcast
+    ip_address: str
     # The complete packet as hex, kept so unknown fields can be studied from a
     # diagnostics dump
     raw: str
@@ -41,8 +45,8 @@ def _u24(data: bytes, offset: int) -> int:
     return int.from_bytes(data[offset : offset + 3], "little")
 
 
-def parse_balancer_packet(data: bytes) -> BalancerData | None:
-    """Decode a balancer broadcast, or return None for any other packet."""
+def parse_balancer_packet(data: bytes, ip_address: str) -> BalancerData | None:
+    """Decode a broadcast from `ip_address`, or return None for any other packet."""
     if len(data) < MIN_PACKET_LENGTH:
         return None
     try:
@@ -65,5 +69,6 @@ def parse_balancer_packet(data: bytes) -> BalancerData | None:
         "current_l1": _u24(data, 20) / 1000,
         "current_l2": _u24(data, 23) / 1000,
         "current_l3": _u24(data, 26) / 1000,
+        "ip_address": ip_address,
         "raw": data.hex(" "),
     }

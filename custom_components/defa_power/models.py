@@ -82,3 +82,8 @@ type DefaPowerBalancerConfigEntry = ConfigEntry[BalancerRuntimeData]
 def is_balancer_entry(entry: ConfigEntry) -> bool:
     """Return whether the entry listens for balancers instead of using CloudCharge."""
     return entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_BALANCER
+
+
+def balancer_entry_title(interface: str) -> str:
+    """Return the default title of a balancer entry listening on an interface."""
+    return f"DEFA Balancer ({interface})"

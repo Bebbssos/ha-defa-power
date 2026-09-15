@@ -16,7 +16,7 @@ This is a custom integration for Home Assistant that allows you to control and m
 - See what is pausing smart charging (eco mode or a manual schedule) and until when it is paused.
 - Override the active smart charging schedule to start charging immediately.
 - Actions to view, create, update, and delete manual charging schedules.
-- Read a **DEFA Balancer** (the load balancing accessory) directly from your local network: per phase current, firmware version and last boot time. No CloudCharge account needed for this.
+- Read a **DEFA Balancer** (the load balancing accessory) directly from your local network: per phase current, firmware version, last boot time and IP address. No CloudCharge account needed for this.
 
 #### Compatibility
 
@@ -54,11 +54,13 @@ This is a custom integration for Home Assistant that allows you to control and m
 
 The balancer broadcasts its readings on the local network (UDP multicast `234.222.250.1:57082`), so Home Assistant must have a network interface on the same network (VLAN) as the balancer.
 
-1. Pick the IP address of that Home Assistant interface. The address Home Assistant uses for multicast is preselected, and any address can be typed.
-2. Home Assistant listens for 10 seconds and lists the balancers it heard, with firmware version and current readings. Untick any you do not want, or type the serial of a balancer that was not heard.
+1. Pick that Home Assistant network interface. Each is listed with its current IP address, and the one Home Assistant uses for multicast is preselected. The interface is remembered by name, so it keeps working when Home Assistant gets a new IP address.
+2. Home Assistant listens for 10 seconds and lists the balancers it heard, with IP address, firmware version and current readings. Untick any you do not want, or type the serial of a balancer that was not heard.
 3. More balancers can be added later from the entry's page with **Add balancer**, and the interface can be changed with **Reconfigure**.
 
-Each balancer becomes a device with current per phase (L1/L2/L3), firmware version and last boot time. If no broadcast is received for a minute the entities become unavailable.
+The balancer broadcasts about twice a second. When nothing has been heard from it for 5 seconds its entities become unavailable; the time can be changed with the entry's **Configure**.
+
+Each balancer becomes a device with current per phase (L1/L2/L3), plus diagnostic sensors for firmware version, last boot time and IP address that are disabled by default.
 
 #### Configuration Options
 

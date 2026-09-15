@@ -4,6 +4,7 @@ import asyncio
 from collections.abc import Callable
 import logging
 import socket
+import sys
 import time
 
 from homeassistant.core import HomeAssistant, callback
@@ -12,6 +13,12 @@ from ..const import BALANCER_MULTICAST_ADDR, BALANCER_MULTICAST_PORT
 from .protocol import BalancerData, parse_balancer_packet
 
 _LOGGER = logging.getLogger(__name__)
+
+# Linux delivers a multicast group to every socket bound to its port once any
+# socket on the host has joined the group, on whichever interface. Clearing
+# this option (not exposed by the socket module) restricts a socket to the
+# groups it joined itself, so a listener only hears its own interface.
+IP_MULTICAST_ALL = 49
 
 type BalancerCallback = Callable[[BalancerData], None]
 
@@ -52,6 +59,8 @@ class BalancerListener(asyncio.DatagramProtocol):
                 self.interface_ip
             )
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, membership)
+            if sys.platform == "linux":
+                sock.setsockopt(socket.IPPROTO_IP, IP_MULTICAST_ALL, 0)
             sock.setblocking(False)
         except OSError:
             sock.close()
@@ -91,7 +100,7 @@ class BalancerListener(asyncio.DatagramProtocol):
 
     def datagram_received(self, data: bytes, addr: tuple[str, int]) -> None:
         """Decode a received packet and dispatch it."""
-        parsed = parse_balancer_packet(data)
+        parsed = parse_balancer_packet(data, addr[0])
         if parsed is None:
             _LOGGER.debug("Ignoring unknown packet from %s: %s", addr, data.hex(" "))
             return
