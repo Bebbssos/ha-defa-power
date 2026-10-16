@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "What do you want to add?",
-        "description": "CloudCharge is the cloud service your DEFA Power charger reports to; it is needed to control and monitor chargers. A DEFA Balancer is read directly from the local network and needs no account.",
+        "description": "CloudCharge is the cloud service your DEFA Power or eRange charger reports to; it is needed to control and monitor chargers. A DEFA Balancer is read directly from the local network and needs no account.",
         "menu_options": {
           "cloudcharge": "CloudCharge account (chargers)",
           "balancer": "DEFA Balancer (local network)"
@@ -115,7 +115,7 @@
         "already_configured": "This connector has already been added.",
         "cannot_connect": "Could not connect to the CloudCharge API.",
         "no_connectors_available": "No connectors available to add. All connectors may already be added.",
-        "wrong_entry_type": "Connectors belong to a CloudCharge account, but this is a DEFA Balancer entry. Pick the account entry instead."
+        "wrong_entry_type": "Connectors can not be added to a DEFA Balancer entry; they belong to a CloudCharge account entry. If you have one, add the connector there. Otherwise click \"Add entry\" on this integration's page and choose \"CloudCharge account (chargers)\"."
       }
     },
     "chargepoint": {
@@ -136,7 +136,7 @@
         "already_configured": "This chargepoint has already been added.",
         "cannot_connect": "Could not connect to the CloudCharge API.",
         "no_chargepoints_available": "No chargepoints available to add. All chargepoints may already be added.",
-        "wrong_entry_type": "Chargepoints belong to a CloudCharge account, but this is a DEFA Balancer entry. Pick the account entry instead."
+        "wrong_entry_type": "Chargepoints can not be added to a DEFA Balancer entry; they belong to a CloudCharge account entry. If you have one, add the chargepoint there. Otherwise click \"Add entry\" on this integration's page and choose \"CloudCharge account (chargers)\"."
       }
     },
     "balancer": {
@@ -167,7 +167,7 @@
       "abort": {
         "already_configured": "This balancer has already been added.",
         "cannot_listen": "Could not listen for broadcasts on the interface of this entry. Check that it still exists, or reconfigure the entry.",
-        "wrong_entry_type": "Balancers belong to a DEFA Balancer entry, but this is a CloudCharge account entry. Pick the balancer entry instead."
+        "wrong_entry_type": "Balancers can not be added to a CloudCharge account entry; they need their own DEFA Balancer entry. If you have one, add the balancer there. Otherwise click \"Add entry\" on this integration's page and choose \"DEFA Balancer (local network)\"."
       }
     }
   },

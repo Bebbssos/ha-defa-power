@@ -3,7 +3,7 @@
         "step": {
             "user": {
                 "title": "Vad vill du lägga till?",
-                "description": "CloudCharge är molntjänsten som din DEFA Power-laddare rapporterar till; den behövs för att styra och övervaka laddare. En DEFA Balancer läses direkt från det lokala nätverket och behöver inget konto.",
+                "description": "CloudCharge är molntjänsten som din DEFA Power- eller eRange-laddare rapporterar till; den behövs för att styra och övervaka laddare. En DEFA Balancer läses direkt från det lokala nätverket och behöver inget konto.",
                 "menu_options": {
                     "cloudcharge": "CloudCharge-konto (laddare)",
                     "balancer": "DEFA Balancer (lokalt nätverk)"
@@ -115,7 +115,7 @@
                 "already_configured": "Den här kontakten har redan lagts till.",
                 "cannot_connect": "Kunde inte ansluta till CloudCharge API.",
                 "no_connectors_available": "Inga kontakter tillgängliga att lägga till. Alla kontakter kanske redan är tillagda.",
-                "wrong_entry_type": "Kontakter hör till ett CloudCharge-konto, men det här är en DEFA Balancer-post. Välj kontoposten i stället."
+                "wrong_entry_type": "Kontakter kan inte läggas till i en DEFA Balancer-post; de hör till en CloudCharge-kontopost. Om du har en, lägg till kontakten där. Annars klickar du på \"Lägg till post\" på integrationens sida och väljer \"CloudCharge-konto (laddare)\"."
             }
         },
         "chargepoint": {
@@ -136,7 +136,7 @@
                 "already_configured": "Den här laddpunkten har redan lagts till.",
                 "cannot_connect": "Kunde inte ansluta till CloudCharge API.",
                 "no_chargepoints_available": "Inga laddpunkter tillgängliga att lägga till. Alla laddpunkter kanske redan är tillagda.",
-                "wrong_entry_type": "Laddpunkter hör till ett CloudCharge-konto, men det här är en DEFA Balancer-post. Välj kontoposten i stället."
+                "wrong_entry_type": "Laddpunkter kan inte läggas till i en DEFA Balancer-post; de hör till en CloudCharge-kontopost. Om du har en, lägg till laddpunkten där. Annars klickar du på \"Lägg till post\" på integrationens sida och väljer \"CloudCharge-konto (laddare)\"."
             }
         },
         "balancer": {
@@ -167,7 +167,7 @@
             "abort": {
                 "already_configured": "Den här balancern har redan lagts till.",
                 "cannot_listen": "Kunde inte lyssna efter utsändningar på postens gränssnitt. Kontrollera att det fortfarande finns, eller konfigurera om posten.",
-                "wrong_entry_type": "Balancers hör till en DEFA Balancer-post, men det här är en CloudCharge-kontopost. Välj balancer-posten i stället."
+                "wrong_entry_type": "Balancers kan inte läggas till i en CloudCharge-kontopost; de behöver en egen DEFA Balancer-post. Om du har en, lägg till balancern där. Annars klickar du på \"Lägg till post\" på integrationens sida och väljer \"DEFA Balancer (lokalt nätverk)\"."
             }
         }
     },
