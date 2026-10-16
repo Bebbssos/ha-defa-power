@@ -4,7 +4,7 @@ Reverse engineered from captured traffic; there is no public documentation.
 Layout of a broadcast (all integers little endian):
 
     0..11   device id, ASCII, "L4" followed by the serial (starts with "33")
-    11..15  uptime in milliseconds, u32
+    11..15  wall clock: Unix time in milliseconds, low 32 bits, u32
     15..20  unknown
     20..23  phase 1 current in mA, u24
     23..26  phase 2 current in mA, u24
@@ -29,7 +29,6 @@ class BalancerData(TypedDict):
 
     serial: str
     firmware_version: str | None
-    uptime_ms: int
     # Amperes per phase
     current_l1: float
     current_l2: float
@@ -65,7 +64,6 @@ def parse_balancer_packet(data: bytes, ip_address: str) -> BalancerData | None:
     return {
         "serial": device_id[2:],
         "firmware_version": firmware_version,
-        "uptime_ms": int.from_bytes(data[11:15], "little"),
         "current_l1": _u24(data, 20) / 1000,
         "current_l2": _u24(data, 23) / 1000,
         "current_l3": _u24(data, 26) / 1000,

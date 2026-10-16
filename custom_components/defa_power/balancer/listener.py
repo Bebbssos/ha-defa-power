@@ -21,6 +21,7 @@ _LOGGER = logging.getLogger(__name__)
 IP_MULTICAST_ALL = 49
 
 type BalancerCallback = Callable[[BalancerData], None]
+type RawPacketCallback = Callable[[bytes, tuple[str, int]], None]
 
 
 class BalancerListener(asyncio.DatagramProtocol):
@@ -38,6 +39,7 @@ class BalancerListener(asyncio.DatagramProtocol):
         self.interface_ip = interface_ip
         self._transport: asyncio.DatagramTransport | None = None
         self._callbacks: dict[str, list[BalancerCallback]] = {}
+        self._raw_callbacks: list[RawPacketCallback] = []
         # Latest decoded broadcast per serial and the monotonic time it arrived
         self.last_seen: dict[str, tuple[BalancerData, float]] = {}
 
@@ -98,8 +100,24 @@ class BalancerListener(asyncio.DatagramProtocol):
 
         return _unregister
 
+    @callback
+    def async_register_raw(self, cb: RawPacketCallback) -> Callable[[], None]:
+        """Call `cb` with every packet received, before and regardless of decoding.
+
+        Returns a function that removes the callback again.
+        """
+        self._raw_callbacks.append(cb)
+
+        @callback
+        def _unregister() -> None:
+            self._raw_callbacks.remove(cb)
+
+        return _unregister
+
     def datagram_received(self, data: bytes, addr: tuple[str, int]) -> None:
         """Decode a received packet and dispatch it."""
+        for raw_cb in self._raw_callbacks:
+            raw_cb(data, addr)
         parsed = parse_balancer_packet(data, addr[0])
         if parsed is None:
             _LOGGER.debug("Ignoring unknown packet from %s: %s", addr, data.hex(" "))

@@ -328,9 +328,6 @@
       "defa_power_current_l3": {
         "name": "Current L3"
       },
-      "defa_power_last_boot": {
-        "name": "Last boot"
-      },
       "defa_power_ip_address": {
         "name": "IP address"
       }

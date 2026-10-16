@@ -328,9 +328,6 @@
             "defa_power_current_l3": {
                 "name": "Ström L3"
             },
-            "defa_power_last_boot": {
-                "name": "Senaste start"
-            },
             "defa_power_ip_address": {
                 "name": "IP-adress"
             }

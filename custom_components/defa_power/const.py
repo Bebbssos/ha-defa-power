@@ -36,6 +36,8 @@ BALANCER_MULTICAST_PORT = 57082
 BALANCER_SCAN_TIMEOUT = 10
 # How long entry setup waits for the first broadcast of each balancer
 BALANCER_FIRST_BROADCAST_TIMEOUT = 5
+# How long a balancer entry's diagnostics records every packet on the group
+BALANCER_DIAGNOSTICS_CAPTURE_TIME = 10
 # Balancer entry option: seconds without a broadcast after which a balancer's
 # entities go unavailable. The balancer broadcasts about twice a second.
 CONF_STALE_TIMEOUT = "stale_timeout"

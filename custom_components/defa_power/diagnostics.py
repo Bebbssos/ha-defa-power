@@ -1,5 +1,6 @@
 """Diagnostics for DEFA Power integration."""
 
+import asyncio
 from collections.abc import Callable
 from functools import partial
 import time
@@ -8,8 +9,8 @@ from typing import Any, cast
 from homeassistant.components.diagnostics.util import async_redact_data
 from homeassistant.core import HomeAssistant
 
-from .balancer.protocol import DEVICE_ID_LENGTH
-from .const import CONF_INTERFACE
+from .balancer.listener import BalancerListener
+from .const import BALANCER_DIAGNOSTICS_CAPTURE_TIME, CONF_INTERFACE
 from .models import (
     DefaPowerBalancerConfigEntry,
     DefaPowerConfigEntry,
@@ -27,8 +28,8 @@ async def async_get_config_entry_diagnostics(
     id_anonymizer = IdAnonymizer()
 
     if is_balancer_entry(entry):
-        return _get_balancer_diagnostics(
-            cast("DefaPowerBalancerConfigEntry", entry), id_anonymizer
+        return await _async_get_balancer_diagnostics(
+            cast("DefaPowerBalancerConfigEntry", entry)
         )
 
     data["chargepoints"] = {}
@@ -55,20 +56,20 @@ async def async_get_config_entry_diagnostics(
     return data
 
 
-def _get_balancer_diagnostics(
-    entry: DefaPowerBalancerConfigEntry, id_anonymizer: IdAnonymizer
+async def _async_get_balancer_diagnostics(
+    entry: DefaPowerBalancerConfigEntry,
 ) -> dict[str, Any]:
-    """Return diagnostics for a balancer entry."""
+    """Return diagnostics for a balancer entry.
+
+    Serials are not anonymized: every raw packet carries one in plain text.
+    """
     listener = entry.runtime_data["listener"]
     data: dict[str, Any] = {
         "interface": entry.data.get(CONF_INTERFACE),
         "interface_ip": listener.interface_ip,
         "balancers": {},
         # Every balancer heard on the interface, including ones not added
-        "heard_serials": [
-            id_anonymizer.anonymize(serial, "anonymized_serial")
-            for serial in listener.last_seen
-        ],
+        "heard_serials": list(listener.last_seen),
     }
     for serial, val in entry.runtime_data["balancers"].items():
         coordinator = val["coordinator"]
@@ -79,14 +80,33 @@ def _get_balancer_diagnostics(
             "last_broadcast": None,
         }
         if last is not None:
-            # The raw packet is kept for studying its unknown fields; its device
-            # id (which is the serial) is dropped
-            d["last_broadcast"] = {
-                **{k: v for k, v in last.items() if k not in ("serial", "raw")},
-                "raw_payload": " ".join(last["raw"].split()[DEVICE_ID_LENGTH:]),
-            }
-        data["balancers"][id_anonymizer.anonymize(serial, "anonymized_serial")] = d
+            d["last_broadcast"] = last
+        data["balancers"][serial] = d
+    data["capture"] = await _async_capture_packets(listener)
     return data
+
+
+async def _async_capture_packets(listener: BalancerListener) -> dict[str, Any]:
+    """Record every packet the listener receives for a while, decodable or not."""
+    packets: list[dict[str, Any]] = []
+    start = time.monotonic()
+
+    def _record(data: bytes, addr: tuple[str, int]) -> None:
+        packets.append(
+            {
+                "time": round(time.monotonic() - start, 3),
+                "source": f"{addr[0]}:{addr[1]}",
+                "length": len(data),
+                "raw": data.hex(" "),
+            }
+        )
+
+    unregister = listener.async_register_raw(_record)
+    try:
+        await asyncio.sleep(BALANCER_DIAGNOSTICS_CAPTURE_TIME)
+    finally:
+        unregister()
+    return {"duration": BALANCER_DIAGNOSTICS_CAPTURE_TIME, "packets": packets}
 
 
 async def _async_get_api_responses(
